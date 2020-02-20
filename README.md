@@ -19,6 +19,9 @@
     - [Create transcript FASTA from combined GFF](#create-transcript-fasta-from-combined-gff)
     - [Align long reads to transcript FASTA](#align-long-reads-to-transcript-fasta)
     - [Quantitate transcripts using Salmon](#quantitate-transcripts-using-salmon)
+- [Identify differential modification in SINV between tet-treated D. melanogaster versus non-treated D. melanogaster](#identify-differential-modification-in-sinv-between-tet-treated-d-melanogaster-versus-non-treated-d-melanogaster)
+  - [Set up reference files](#set-up-reference-files-1)
+  - [Resquiggle the MinION FAST5 files](#resquiggle-the-minion-fast5-files)
 
 <!-- /MarkdownTOC -->
 
@@ -30,12 +33,15 @@ For rerunning analyses, all paths in this section must be set by the user.
 ## Software
 
 ```{bash, eval = F}
+PYTHON_LIB_PATH=/usr/local/packages/python-3.5/lib
+
 GFFCOMPARE_BIN_DIR=/usr/local/packages/gffcompare-0.10.5/bin
 GFFREAD_BIN_DIR=/local/aberdeen2rw/julie/Matt_dir/packages/gffread_v0.10.4
 MINIMAP2_BIN_DIR=/usr/local/packages/minimap2-2.9/bin
 SALMON_BIN_DIR=/local/aberdeen2rw/julie/Matt_dir/packages/salmon_v1.1.0/bin
 SAMTOOLS_BIN_DIR=/usr/local/packages/samtools-1.9/bin
 STRINGTIE_BIN_DIR=/local/aberdeen2rw/julie/Matt_dir/packages/stringtie_v2.1.1
+TOMBO_BIN_DIR=/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin
 
 SCRIPTS_BIN_DIR=/home/mattchung/scripts
 ```
@@ -62,7 +68,7 @@ mkdir -p "$WORKING_DIR"/salmon/tettreated
 ## in vitro (20190215)
 /usr/local/projects/RDMIN/SEQUENCE/20190215/SINV_IVT/20190215_1549_MN21969_FAJ05343_c9ab6447/fastq_pass/FAJ05343_207c601fce7a926411ae726282c35aed37ce5e1f_0.fastq
 
-## non-treated (20191024 + 20191026)
+## non-treated (20181024 + 20181026)
 /local/aberdeen2rw/julie/Matt_dir/amelia/nontreated_native.fastq
 
 ## tet-treated (20190307)
@@ -119,7 +125,7 @@ FASTQ=/usr/local/projects/RDMIN/SEQUENCE/20190307/JW18_Tet_1/20190307_1511_MN219
 ```
 
 ```{bash, eval = F}
-echo -e ""$MINIMAP2_BIN_DIR"/minimap2 -ax splice -uf -k14 -t "$THREADS" "$REF_FNA" "$FASTQ" | "$SAMTOOLS_BIN_DIR"/samtools view -bho "$OUTPUT_PREFIX".bam -" | qsub -q threaded.q  -pe thread "$THREADS" -P jdhotopp-lab -l mem_free=5G -N minimap2 -wd "$WORKING_DIR"
+echo -e ""$MINIMAP2_BIN_DIR"/minimap2 -ax splice -uf -k14 -t "$THREADS" --secondary=yes "$REF_FNA" "$FASTQ" | "$SAMTOOLS_BIN_DIR"/samtools view -bho "$OUTPUT_PREFIX".bam -" | qsub -q threaded.q  -pe thread "$THREADS" -P jdhotopp-lab -l mem_free=5G -N minimap2 -wd "$WORKING_DIR"
 ```
 
 ### Sort and index BAM files
@@ -233,3 +239,42 @@ BAM="$WORKING_DIR"/bam/tettreated.gene.bam
 echo -e ""$SALMON_BIN_DIR"/salmon quant -t "$REF_GENE_FNA" --libType A -a "$BAM" -p "$THREADS" -o "$OUTPUT_DIR"" | qsub -P jdhotopp-lab -q threaded.q -pe thread "$THREADS" -l mem_free=5G -N salmon -wd "$OUTPUT_DIR"
 ```
 
+# Identify differential modification in SINV between tet-treated D. melanogaster versus non-treated D. melanogaster
+
+## Set up reference files
+
+## Resquiggle the MinION FAST5 files
+
+##### Input Sets:
+```{bash, eval = F}
+THREADS=16
+REF_TRANSCRIPT_FNA=/local/projects-t3/EBMAL/mchung_dir/amelia/references/GCA_000860545.1_ViralProj15316_genomic.fna
+
+## in vitro
+FAST5_DIR=/local/aberdeen2rw/julie/Matt_dir/amelia/invitro_fast5
+FASTQ_FILE=/usr/local/projects/RDMIN/SEQUENCE/20190215/SINV_IVT/20190215_1549_MN21969_FAJ05343_c9ab6447/fastq_pass/FAJ05343_207c601fce7a926411ae726282c35aed37ce5e1f_0.fastq
+
+## non-treated
+FAST5_DIR=/local/aberdeen2rw/julie/Matt_dir/amelia/native_fast5
+FASTQ_FILE=/local/aberdeen2rw/julie/Matt_dir/amelia/nontreated_native.fastq
+
+## tet-treated
+FAST5_DIR=/local/aberdeen2rw/julie/Matt_dir/amelia/tet_native_fast5
+FASTQ_FILE=/usr/local/projects/RDMIN/SEQUENCE/20190307/JW18_Tet_1/20190307_1511_MN21969_FAK36034_cc9722d6/fastq_pass/FAK36034_1c11934bf425d689c4359d9929334e23470cdcdd_0.fastq
+```
+
+##### Commands:
+```{bash, eval = F}
+echo -e "export LD_LIBRARY_PATH="$PYTHON_LIB_PATH":"$LD_LIBRARY_PATH"\n"$TOMBO_BIN_DIR"/tombo resquiggle --overwrite --rna "$FAST5_DIR" "$REF_TRANSCRIPT_FNA" --processes "$THREADS" --num-most-common-errors 5" | qsub -P jdhotopp-lab -q threaded.q -pe thread "$THREADS" -l mem_free=5G -N tombo_resquiggle -wd "$FAST5_DIR"
+```
+
+in vitro:
+```{bash, eval = F}
+5 most common unsuccessful read types (approx. %):
+    96.7% (  12301 reads) : Alignment not produced
+     0.2% (     28 reads) : Poor raw to expected signal matching (revert with `tombo filter clear_filters`)
+     0.0% (      1 reads) : Read event to sequence alignment extends beyond bandwidth
+     0.0% (      1 reads) : Base calls not found in FAST5 (see `tombo preprocess`)
+     -----
+100%|██████████| 12812/12812 [03:40<00:00, 58.04it/s]
+```

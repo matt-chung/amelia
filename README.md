@@ -278,3 +278,35 @@ in vitro:
      -----
 100%|██████████| 12812/12812 [03:40<00:00, 58.04it/s]
 ```
+
+
+```{bash, eval = F}
+THREADS=16
+
+## non-treated
+FAST5_DIR=/local/aberdeen2rw/julie/Matt_dir/amelia/native_fast5
+STATS_PREFIX="$WORKING_DIR"/tombo/nontreated
+```
+
+```{bash, eval = F}
+echo -e ""$TOMBO_BIN_DIR"/tombo detect_modifications de_novo \
+   --fast5-basedirs "$FAST5_DIR" \
+   --per-read-statistics-basename "$STATS_PREFIX".denovo_base_detection \
+   --statistics-file-basename "$STATS_PREFIX".denovo_base_detection \
+   --processes "$THREADS"" | qsub -P jdhotopp-lab -q threaded.q -pe thread "$THREADS" -l mem_free=5G -N tombo_detect_modifications_de_novo -wd "$FAST5_DIR"
+```
+
+```{bash, eval = F}
+echo -e ""$TOMBO_BIN_DIR"/tombo text_output browser_files --fast5-basedirs "$FAST5_DIR" --statistics-filename "$STATS_PREFIX".denovo_base_detection.tombo.stats --file-types dampened_fraction --browser-file-basename "$STATS_PREFIX".denovo_base_detection" | qsub -P jdhotopp-lab -q threaded.q -pe thread "$THREADS" -l mem_free=50G -N tombo_text_output_browser_files -wd "$(dirname "$STATS_PREFIX")"
+```
+
+```{bash, eval = F}
+echo -e ""$TOMBO_BIN_DIR"/tombo detect_modifications alternative_model --fast5-basedirs "$FAST5_DIR" \
+  --statistics-file-basename "$STATS_PREFIX".5mC_base_detection \
+  --per-read-statistics-basename "$STATS_PREFIX".5mC_base_detection \
+  --alternate-bases 5mC \
+  --processes "$THREADS"" | qsub -P jdhotopp-lab -q threaded.q -pe thread "$THREADS" -l mem_free=5G -N tombo_detect_modifications -wd "$FAST5_DIR"
+```
+```{bash, eval = F}
+echo -e ""$TOMBO_BIN_DIR"/tombo text_output browser_files --fast5-basedirs "$FAST5_DIR" --statistics-filename "$STATS_PREFIX".5mC_base_detection.5mC.tombo.stats --file-types dampened_fraction --browser-file-basename "$STATS_PREFIX".5mC_base_detection" | qsub -P jdhotopp-lab -q threaded.q -pe thread "$THREADS" -l mem_free=50G -N tombo_text_output_browser_files -wd "$(dirname "$STATS_PREFIX")"
+```

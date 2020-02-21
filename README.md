@@ -211,6 +211,26 @@ FASTQ=/local/aberdeen2rw/julie/Matt_dir/amelia/nontreated_native.fastq
 ## tet-treated
 OUTPUT_PREFIX="$WORKING_DIR"/bam/tettreated
 FASTQ=/usr/local/projects/RDMIN/SEQUENCE/20190307/JW18_Tet_1/20190307_1511_MN21969_FAK36034_cc9722d6/fastq_pass/FAK36034_1c11934bf425d689c4359d9929334e23470cdcdd_0.fastq
+
+########3
+
+REF_GENE_FNA=/local/projects-t3/EBMAL/mchung_dir/amelia/references/combined.fna
+THREADS=4
+
+## non-treated
+OUTPUT_PREFIX="$WORKING_DIR"/bam/invitro_all
+FASTQ=/usr/local/projects/RDMIN/SEQUENCE/20190215/SINV_IVT/20190215_1549_MN21969_FAJ05343_c9ab6447/fastq_pass/FAJ05343_207c601fce7a926411ae726282c35aed37ce5e1f_0.fastq
+
+## non-treated
+OUTPUT_PREFIX="$WORKING_DIR"/bam/nontreated_all
+FASTQ=/local/aberdeen2rw/julie/Matt_dir/amelia/nontreated_native.fastq
+
+## tet-treated
+OUTPUT_PREFIX="$WORKING_DIR"/bam/tettreated_all
+FASTQ=/usr/local/projects/RDMIN/SEQUENCE/20190307/JW18_Tet_1/20190307_1511_MN21969_FAK36034_cc9722d6/fastq_pass/FAK36034_1c11934bf425d689c4359d9929334e23470cdcdd_0.fastq
+
+
+
 ```
 
 ##### Commands:

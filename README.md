@@ -41,6 +41,7 @@ MINIMAP2_BIN_DIR=/usr/local/packages/minimap2-2.9/bin
 SALMON_BIN_DIR=/local/aberdeen2rw/julie/Matt_dir/packages/salmon_v1.1.0/bin
 SAMTOOLS_BIN_DIR=/usr/local/packages/samtools-1.9/bin
 STRINGTIE_BIN_DIR=/local/aberdeen2rw/julie/Matt_dir/packages/stringtie_v2.1.1
+TALON_BIN_DIR=/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin/
 TOMBO_BIN_DIR=/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin
 
 SCRIPTS_BIN_DIR=/home/mattchung/scripts

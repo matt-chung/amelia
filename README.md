@@ -37,7 +37,7 @@ PYTHON_LIB_PATH=/usr/local/packages/python-3.5/lib
 
 GFFCOMPARE_BIN_DIR=/usr/local/packages/gffcompare-0.10.5/bin
 GFFREAD_BIN_DIR=/local/aberdeen2rw/julie/Matt_dir/packages/gffread_v0.10.4
-MINIMAP2_BIN_DIR=/usr/local/packages/minimap2-2.9/bin
+MINIMAP2_BIN_DIR=/local/aberdeen2rw/julie/Matt_dir/packages/minimap2-2.17_x64-linux
 SALMON_BIN_DIR=/local/aberdeen2rw/julie/Matt_dir/packages/salmon_v1.1.0/bin
 SAMTOOLS_BIN_DIR=/usr/local/packages/samtools-1.9/bin
 STRINGTIE_BIN_DIR=/local/aberdeen2rw/julie/Matt_dir/packages/stringtie_v2.1.1
@@ -87,8 +87,10 @@ mkdir -p "$WORKING_DIR"/salmon/tettreated
 ## D. melanogaster
 wget -O "$WORKING_DIR"/references/dmelanogaster.fna.gz  ftp://ftp.flybase.net/releases/FB2020_01/dmel_r6.32/fasta/dmel-all-chromosome-r6.32.fasta.gz
 wget -O "$WORKING_DIR"/references/dmelanogaster.gff.gz  ftp://ftp.flybase.net/releases/FB2020_01/dmel_r6.32/gff/dmel-all-filtered-r6.32.gff.gz
+wget -O "$WORKING_DIR"/references/dmelanogaster.gtf.gz  ftp://ftp.flybase.net/releases/FB2020_01/dmel_r6.32/gtf/dmel-all-r6.32.gtf.gz
 gunzip "$WORKING_DIR"/references/dmelanogaster.fna.gz
 gunzip "$WORKING_DIR"/references/dmelanogaster.gff.gz
+gunzip "$WORKING_DIR"/references/dmelanogaster.gtf.gz
 
 ## wMel
 wget -O "$WORKING_DIR"/references/wMel.fna.gz ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/008/025/GCF_000008025.1_ASM802v1/GCF_000008025.1_ASM802v1_genomic.fna.gz
@@ -126,7 +128,7 @@ FASTQ=/usr/local/projects/RDMIN/SEQUENCE/20190307/JW18_Tet_1/20190307_1511_MN219
 ```
 
 ```{bash, eval = F}
-echo -e ""$MINIMAP2_BIN_DIR"/minimap2 -ax splice -uf -k14 -t "$THREADS" --secondary=yes "$REF_FNA" "$FASTQ" | "$SAMTOOLS_BIN_DIR"/samtools view -bho "$OUTPUT_PREFIX".bam -" | qsub -q threaded.q  -pe thread "$THREADS" -P jdhotopp-lab -l mem_free=5G -N minimap2 -wd "$WORKING_DIR"
+echo -e ""$MINIMAP2_BIN_DIR"/minimap2 -ax splice --MD -uf -k14 -t "$THREADS" --secondary=yes "$REF_FNA" "$FASTQ" | "$SAMTOOLS_BIN_DIR"/samtools view -bho "$OUTPUT_PREFIX".bam -" | qsub -q threaded.q  -pe thread "$THREADS" -P jdhotopp-lab -l mem_free=5G -N minimap2 -wd "$WORKING_DIR"
 ```
 
 ### Sort and index BAM files
@@ -310,4 +312,35 @@ echo -e ""$TOMBO_BIN_DIR"/tombo detect_modifications alternative_model --fast5-b
 ```
 ```{bash, eval = F}
 echo -e ""$TOMBO_BIN_DIR"/tombo text_output browser_files --fast5-basedirs "$FAST5_DIR" --statistics-filename "$STATS_PREFIX".5mC_base_detection.5mC.tombo.stats --file-types dampened_fraction --browser-file-basename "$STATS_PREFIX".5mC_base_detection" | qsub -P jdhotopp-lab -q threaded.q -pe thread "$THREADS" -l mem_free=50G -N tombo_text_output_browser_files -wd "$(dirname "$STATS_PREFIX")"
+```
+
+```{bash, eval = F}
+ANNOTATION_NAME="$WORKING_DIR"/references/dmelanogaster_r6.32
+GENOME_BUILD=r6.32
+GTF="$WORKING_DIR"/references/dmelanogaster.gtf
+```
+
+```{bash, eval = F}
+"$TALON_BIN_DIR"/talon_initialize_database --f="$GTF" --g="$GENOME_BUILD" --a="$ANNOTATION_NAME" --o="$ANNOTATION_NAME"
+
+
+```
+
+```{bash, eval = F}
+CONFIG="$WORKING_DIR"/talon/config.txt
+GENOME_BUILD=r6.32
+THREADS=4
+DB="$WORKING_DIR"/talon/dmelanogaster_r6.32.db
+OUTPUT_PREFIX="$WORKING_DIR"/talon/talon
+
+ANNOTATION_NAME="$WORKING_DIR"/references/dmelanogaster_r6.32
+
+GTF="$WORKING_DIR"/references/dmelanogaster.gtf
+```
+
+```{bash, eval = F}
+"$TALON_BIN_DIR"/talon --f="$CONFIG" --db="$DB" --build="$GENOME_BUILD" --t="$THREADS" --o "$OUTPUT_PREFIX"
+
+
+
 ```

@@ -22,6 +22,10 @@
 - [Identify differential modification in SINV between tet-treated D. melanogaster versus non-treated D. melanogaster](#identify-differential-modification-in-sinv-between-tet-treated-d-melanogaster-versus-non-treated-d-melanogaster)
   - [Set up reference files](#set-up-reference-files-1)
   - [Resquiggle the MinION FAST5 files](#resquiggle-the-minion-fast5-files)
+  - [Detect base modifications in the tet-treated and non-treated samples using Tombo de novo mode](#detect-base-modifications-in-the-tet-treated-and-non-treated-samples-using-tombo-de-novo-mode)
+  - [Output dampened fraction values for each position from Tombo de novo mode](#output-dampened-fraction-values-for-each-position-from-tombo-de-novo-mode)
+  - [Detect base modifications in the tet-treated and non-treated samples using Tombo 5mC alternative model mode](#detect-base-modifications-in-the-tet-treated-and-non-treated-samples-using-tombo-5mc-alternative-model-mode)
+  - [Output dampened fraction values for each position from Tombo 5mC alternative model mode](#output-dampened-fraction-values-for-each-position-from-tombo-5mc-alternative-model-mode)
 
 <!-- /MarkdownTOC -->
 
@@ -293,16 +297,30 @@ echo -e "export LD_LIBRARY_PATH="$PYTHON_LIB_PATH":"$LD_LIBRARY_PATH"\n"$TOMBO_B
 
 in vitro:
 ```{bash, eval = F}
-5 most common unsuccessful read types (approx. %):
-    96.7% (  12301 reads) : Alignment not produced
+[15:45:22] Final unsuccessful reads summary (96.3% reads unsuccessfully processed; 12342 total reads):
+    96.1% (  12312 reads) : Alignment not produced
      0.2% (     28 reads) : Poor raw to expected signal matching (revert with `tombo filter clear_filters`)
      0.0% (      1 reads) : Read event to sequence alignment extends beyond bandwidth
      0.0% (      1 reads) : Base calls not found in FAST5 (see `tombo preprocess`)
-     -----
-100%|██████████| 12812/12812 [03:40<00:00, 58.04it/s]
 ```
 
+non-treated:
+```{bash, eval = F}
+[21:33:51] Final unsuccessful reads summary (99.9% reads unsuccessfully processed; 486771 total reads):
+    99.9% ( 486681 reads) : Alignment not produced
+     0.0% (     84 reads) : Poor raw to expected signal matching (revert with `tombo filter clear_filters`)
+     0.0% (      6 reads) : Read event to sequence alignment extends beyond bandwidth
+```
 
+tet-treated
+```{bash, eval = F}
+[18:45:55] Final unsuccessful reads summary (100.0% reads unsuccessfully processed; 304309 total reads):
+   100.0% ( 304309 reads) : Alignment not produced
+```
+
+## Detect base modifications in the tet-treated and non-treated samples using Tombo de novo mode
+
+##### Input Sets:
 ```{bash, eval = F}
 THREADS=16
 
@@ -311,6 +329,7 @@ FAST5_DIR=/local/aberdeen2rw/julie/Matt_dir/amelia/native_fast5
 STATS_PREFIX="$WORKING_DIR"/tombo/nontreated
 ```
 
+##### Commands:
 ```{bash, eval = F}
 echo -e ""$TOMBO_BIN_DIR"/tombo detect_modifications de_novo \
    --fast5-basedirs "$FAST5_DIR" \
@@ -319,10 +338,34 @@ echo -e ""$TOMBO_BIN_DIR"/tombo detect_modifications de_novo \
    --processes "$THREADS"" | qsub -P jdhotopp-lab -q threaded.q -pe thread "$THREADS" -l mem_free=5G -N tombo_detect_modifications_de_novo -wd "$FAST5_DIR"
 ```
 
+## Output dampened fraction values for each position from Tombo de novo mode
+
+##### Input Sets:
+```{bash, eval = F}
+THREADS=16
+
+## non-treated
+FAST5_DIR=/local/aberdeen2rw/julie/Matt_dir/amelia/native_fast5
+STATS_PREFIX="$WORKING_DIR"/tombo/nontreated
+```
+
+##### Commands:
 ```{bash, eval = F}
 echo -e ""$TOMBO_BIN_DIR"/tombo text_output browser_files --fast5-basedirs "$FAST5_DIR" --statistics-filename "$STATS_PREFIX".denovo_base_detection.tombo.stats --file-types dampened_fraction --browser-file-basename "$STATS_PREFIX".denovo_base_detection" | qsub -P jdhotopp-lab -q threaded.q -pe thread "$THREADS" -l mem_free=50G -N tombo_text_output_browser_files -wd "$(dirname "$STATS_PREFIX")"
 ```
 
+## Detect base modifications in the tet-treated and non-treated samples using Tombo 5mC alternative model mode
+
+##### Input Sets:
+```{bash, eval = F}
+THREADS=16
+
+## non-treated
+FAST5_DIR=/local/aberdeen2rw/julie/Matt_dir/amelia/native_fast5
+STATS_PREFIX="$WORKING_DIR"/tombo/nontreated
+```
+
+##### Commands:
 ```{bash, eval = F}
 echo -e ""$TOMBO_BIN_DIR"/tombo detect_modifications alternative_model --fast5-basedirs "$FAST5_DIR" \
   --statistics-file-basename "$STATS_PREFIX".5mC_base_detection \
@@ -330,18 +373,35 @@ echo -e ""$TOMBO_BIN_DIR"/tombo detect_modifications alternative_model --fast5-b
   --alternate-bases 5mC \
   --processes "$THREADS"" | qsub -P jdhotopp-lab -q threaded.q -pe thread "$THREADS" -l mem_free=5G -N tombo_detect_modifications -wd "$FAST5_DIR"
 ```
+
+## Output dampened fraction values for each position from Tombo 5mC alternative model mode
+
+##### Input Sets:
+```{bash, eval = F}
+THREADS=16
+
+## non-treated
+FAST5_DIR=/local/aberdeen2rw/julie/Matt_dir/amelia/native_fast5
+STATS_PREFIX="$WORKING_DIR"/tombo/nontreated
+```
+
+##### Commands
 ```{bash, eval = F}
 echo -e ""$TOMBO_BIN_DIR"/tombo text_output browser_files --fast5-basedirs "$FAST5_DIR" --statistics-filename "$STATS_PREFIX".5mC_base_detection.5mC.tombo.stats --file-types dampened_fraction --browser-file-basename "$STATS_PREFIX".5mC_base_detection" | qsub -P jdhotopp-lab -q threaded.q -pe thread "$THREADS" -l mem_free=50G -N tombo_text_output_browser_files -wd "$(dirname "$STATS_PREFIX")"
 ```
 
+
 ```{bash, eval = F}
-ANNOTATION_NAME="$WORKING_DIR"/references/dmelanogaster_r6.32
+ANNOTATION_NAME=dmelanogaster_r6.32
 GENOME_BUILD=r6.32
 GTF="$WORKING_DIR"/references/dmelanogaster.gtf
+OUTPUT_DB="$WORKING_DIR"/talon/dmelanogaster_r6.32
 ```
 
 ```{bash, eval = F}
-"$TALON_BIN_DIR"/talon_initialize_database --f="$GTF" --g="$GENOME_BUILD" --a="$ANNOTATION_NAME" --o="$ANNOTATION_NAME"
+"$TALON_BIN_DIR"/talon_reformat_gtf -gtf "$GTF"
+
+"$TALON_BIN_DIR"/talon_initialize_database --f="$GTF" --g="$GENOME_BUILD" --a="$ANNOTATION_NAME" --o="$OUTPUT_DB"
 
 
 ```
@@ -359,8 +419,106 @@ GTF="$WORKING_DIR"/references/dmelanogaster.gtf
 ```
 
 ```{bash, eval = F}
-"$TALON_BIN_DIR"/talon --f="$CONFIG" --db="$DB" --build="$GENOME_BUILD" --t="$THREADS" --o "$OUTPUT_PREFIX"
+qsub -q threaded.q  -pe thread "$THREADS" -P jdhotopp-lab -l mem_free=5G -N talon -wd "$(dirname "$OUTPUT_PREFIX")" -b y "$TALON_BIN_DIR"/talon --f="$CONFIG" --db="$DB" --build="$GENOME_BUILD" --t="$THREADS" --o "$OUTPUT_PREFIX"
 
 
 
 ```
+
+
+
+
+
+```{bash, eval = F}
+"$TALON_BIN_DIR"/talon_summarize --db="$DB" --v --o test
+```
+
+```{bash, eval = F}
+---------------nontreated---------------
+Number of reads: 202829
+Known genes: 6705
+Novel genes: 1086
+----Antisense genes: 556
+----Other novel genes: 530
+Known transcripts: 5355
+Novel transcripts: 21111
+----ISM transcripts: 8828
+--------Prefix ISM transcripts: 913
+--------Suffix ISM transcripts: 5967
+----NIC transcripts: 2434
+----NNC transcripts: 5167
+----antisense transcripts: 524
+----genomic transcripts: 3674
+---------------tettreated---------------
+Number of reads: 190386
+Known genes: 6651
+Novel genes: 1108
+----Antisense genes: 570
+----Other novel genes: 538
+Known transcripts: 4731
+Novel transcripts: 19174
+----ISM transcripts: 8059
+--------Prefix ISM transcripts: 701
+--------Suffix ISM transcripts: 5141
+----NIC transcripts: 2043
+----NNC transcripts: 4313
+----antisense transcripts: 526
+----genomic transcripts: 3754
+```
+
+
+```{bash, eval = F}
+DB="$WORKING_DIR"/talon/dmelanogaster_r6.32.db
+ANNOTATION_NAME=dmelanogaster_r6.32
+GENOME_BUILD=r6.32
+OUTPUT_PREFIX="$WORKING_DIR"/talon/talon
+
+PAIRINGS=/local/projects-t3/EBMAL/mchung_dir/amelia/talon/pairings.csv
+```
+
+```{bash, eval = F}
+"$TALON_BIN_DIR"/talon_filtered_transcripts --db="$DB" -a "$ANNOTATION_NAME" --b="$GENOME_BUILD" --p="$PAIRINGS" --o="$OUTPUT_PREFIX".csv
+
+
+```
+
+
+
+
+```{bash, eval = F}
+"$TALON_BIN_DIR"/talon_abundance --db="$DB" -a "$ANNOTATION_NAME" --b="$GENOME_BUILD" --whitelist "$OUTPUT_PREFIX".csv --o="$OUTPUT_PREFIX"
+```
+
+```{bash, eval = F}
+"$TALON_BIN_DIR"/talon_create_GTF --db="$DB" -a "$ANNOTATION_NAME" --b="$GENOME_BUILD" --whitelist "$OUTPUT_PREFIX".csv --o="$OUTPUT_PREFIX"
+```
+
+"$SAMTOOLS_BIN_DIR"/samtools view -F16 -o "$(echo "$BAM" | sed "s/[.]bam$/.f.bam/g")" "$BAM"
+"$SAMTOOLS_BIN_DIR"/samtools view -f16 -o "$(echo "$BAM" | sed "s/[.]bam$/.r.bam/g")" "$BAM"
+
+
+awk -F "\t" '$3 == "gene" {print $1"\t"$4"\t"$5"\t"$9}' "$GTF" > "$WORKING_DIR"/splice_index_analysis/talon_gene.bed
+"$SAMTOOLS_BIN_DIR"/samtools depth -aa -d 1000000 -b "$WORKING_DIR"/splice_index_analysis/talon_gene.bed -f "$WORKING_DIR"/splice_index_analysis/bam.list > "$WORKING_DIR"/splice_index_analysis/gene.depth
+
+
+
+WORKING_DIR=/local/projects-t3/EBMAL/mchung_dir/amelia
+SAMTOOLS_BIN_DIR=/usr/local/packages/samtools-1.9/bin
+
+GTF="$WORKING_DIR"/talon/talon_talon.gtf
+
+rm "$WORKING_DIR"/splice_index_analysis/avg_exon2.depth
+awk -F "\t" '$3 == "exon" {print $9}' "$GTF" | sed "s/.* exon_id .//g" | sed "s/.;.*//g" | sort -n | uniq | while read exon
+do
+  chr="$(grep " exon_id .$exon.;" "$GTF" | awk -F "\t" '$3 == "exon" {print $1}' | uniq)"
+  start="$(grep " exon_id .$exon.;" "$GTF" | awk -F "\t" '$3 == "exon" {print $4}' | uniq)"
+  stop="$(grep " exon_id .$exon.;" "$GTF" | awk -F "\t" '$3 == "exon" {print $5}' | uniq)"
+
+  "$SAMTOOLS_BIN_DIR"/samtools depth -aa -d 1000000 -r "$chr":"$start"-"$stop" -f "$WORKING_DIR"/splice_index_analysis/bam.list > "$WORKING_DIR"/splice_index_analysis/gene.subset2.depth
+
+  echo -e ""$exon"\t"$(awk '{ sum += $3 } END { if (NR > 0) print sum / NR }' "$WORKING_DIR"/splice_index_analysis/gene.subset2.depth)"""\t"$(awk '{ sum += $4 } END { if (NR > 0) print sum / NR }' "$WORKING_DIR"/splice_index_analysis/gene.subset2.depth)"""\t"$(awk '{ sum += $5 } END { if (NR > 0) print sum / NR }' "$WORKING_DIR"/splice_index_analysis/gene.subset2.depth)"""\t"$(awk '{ sum += $6 } END { if (NR > 0) print sum / NR }' "$WORKING_DIR"/splice_index_analysis/gene.subset2.depth)"""" >> "$WORKING_DIR"/splice_index_analysis/avg_exon2.depth
+done
+qsub -P jdhotopp-lab -l mem_free=5G -N splice_index_analysis -wd "$WORKING_DIR"/splice_index_analysis -b y "$WORKING_DIR"/splice_index_analysis/calc_exon_depth.sh
+
+qsub -P jdhotopp-lab -l mem_free=5G -N splice_index_analysis -wd "$WORKING_DIR"/splice_index_analysis -b y "$WORKING_DIR"/splice_index_analysis/calc_exon_depth2.sh
+

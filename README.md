@@ -6,13 +6,21 @@
   - [Software](#software)
   - [Directories](#directories)
   - [Create directories](#create-directories)
-- [Identify differential isoform expression between treated D. melanogaster versus non-treated D. melanogaster](#identify-differential-isoform-expression-between-treated-d-melanogaster-versus-non-treated-d-melanogaster)
   - [Set up reference files](#set-up-reference-files)
-    - [Download D. melanogaster and wMel reference files](#download-d-melanogaster-and-wmel-reference-files)
+    - [Download D. melanogaster, wMel, and SINV reference files](#download-d-melanogaster-wmel-and-sinv-reference-files)
+    - [Create FASTA for the spike sequence](#create-fasta-for-the-spike-sequence)
     - [Create D. melanogaster and wMel combined reference files](#create-d-melanogaster-and-wmel-combined-reference-files)
+    - [Create D. melanogaster, wMel, SINV, and spike combined reference files](#create-d-melanogaster-wmel-sinv-and-spike-combined-reference-files)
+- [Count the number of reads in each sample that mapped to D. melanogaster, wMel, SINV, and the spike sequence](#count-the-number-of-reads-in-each-sample-that-mapped-to-d-melanogaster-wmel-sinv-and-the-spike-sequence)
+  - [Align long reads to combined D. melanogaster, wMel, SINV, and spike combined reference](#align-long-reads-to-combined-d-melanogaster-wmel-sinv-and-spike-combined-reference)
+  - [Find number of reads that map to D. melanogaster, wMel, SINV, and spike](#find-number-of-reads-that-map-to-d-melanogaster-wmel-sinv-and-spike)
+    - [D. melanogaster](#d-melanogaster)
+    - [wMel](#wmel)
+    - [SINV](#sinv)
+    - [spike](#spike)
+- [Identify differential isoform expression between treated D. melanogaster versus non-treated D. melanogaster](#identify-differential-isoform-expression-between-treated-d-melanogaster-versus-non-treated-d-melanogaster)
   - [Align long reads to combined D. melanogaster and wMel reference](#align-long-reads-to-combined-d-melanogaster-and-wmel-reference)
-    - [Align long reads from non-treated and tet-treated](#align-long-reads-from-non-treated-and-tet-treated)
-    - [Sort and index BAM files](#sort-and-index-bam-files)
+  - [Sort and index BAM files](#sort-and-index-bam-files)
   - [Create annotations for the non-treated and tet-treated samples from long-reads](#create-annotations-for-the-non-treated-and-tet-treated-samples-from-long-reads)
   - [Combine annotations made from the separate long read samples](#combine-annotations-made-from-the-separate-long-read-samples)
   - [Quantitate long-read FASTQs using combined GFF](#quantitate-long-read-fastqs-using-combined-gff)
@@ -20,12 +28,20 @@
     - [Align long reads to transcript FASTA](#align-long-reads-to-transcript-fasta)
     - [Quantitate transcripts using Salmon](#quantitate-transcripts-using-salmon)
 - [Identify differential modification in SINV between tet-treated D. melanogaster versus non-treated D. melanogaster](#identify-differential-modification-in-sinv-between-tet-treated-d-melanogaster-versus-non-treated-d-melanogaster)
-  - [Set up reference files](#set-up-reference-files-1)
   - [Resquiggle the MinION FAST5 files](#resquiggle-the-minion-fast5-files)
-  - [Detect base modifications in the tet-treated and non-treated samples using Tombo de novo mode](#detect-base-modifications-in-the-tet-treated-and-non-treated-samples-using-tombo-de-novo-mode)
-  - [Output dampened fraction values for each position from Tombo de novo mode](#output-dampened-fraction-values-for-each-position-from-tombo-de-novo-mode)
-  - [Detect base modifications in the tet-treated and non-treated samples using Tombo 5mC alternative model mode](#detect-base-modifications-in-the-tet-treated-and-non-treated-samples-using-tombo-5mc-alternative-model-mode)
-  - [Output dampened fraction values for each position from Tombo 5mC alternative model mode](#output-dampened-fraction-values-for-each-position-from-tombo-5mc-alternative-model-mode)
+  - [Detect base modifications in the tet-treated and non-treated samples using Tombo](#detect-base-modifications-in-the-tet-treated-and-non-treated-samples-using-tombo)
+    - [Run Tombo in de novo mode for detecting modifications](#run-tombo-in-de-novo-mode-for-detecting-modifications)
+    - [Detect modifications using Tombo de novo mode](#detect-modifications-using-tombo-de-novo-mode)
+    - [Output dampened fraction values for each position from Tombo de novo mode](#output-dampened-fraction-values-for-each-position-from-tombo-de-novo-mode)
+  - [Run Tombo in 5mC alternative model mode](#run-tombo-in-5mc-alternative-model-mode)
+    - [Detect modifications using Tombo 5mC alternative model mode](#detect-modifications-using-tombo-5mc-alternative-model-mode)
+    - [Output dampened fraction values for each position from Tombo 5mC alternative model mode](#output-dampened-fraction-values-for-each-position-from-tombo-5mc-alternative-model-mode)
+  - [Run Tombo in model_sample_compare mode](#run-tombo-in-model_sample_compare-mode)
+    - [Detect modifications using Tombo model_sample_compare mode](#detect-modifications-using-tombo-model_sample_compare-mode)
+    - [Output dampened fraction values for each position from Tombo model_sample_compare mode](#output-dampened-fraction-values-for-each-position-from-tombo-model_sample_compare-mode)
+  - [Plot Tombo results from each run mode to identify modified positions](#plot-tombo-results-from-each-run-mode-to-identify-modified-positions)
+    - [Set R inputs](#set-r-inputs)
+  - [Load R packages and view sessionInfo](#load-r-packages-and-view-sessioninfo)
 
 <!-- /MarkdownTOC -->
 
@@ -80,11 +96,9 @@ mkdir -p "$WORKING_DIR"/salmon/tettreated
 /usr/local/projects/RDMIN/SEQUENCE/20190307/JW18_Tet_1/20190307_1511_MN21969_FAK36034_cc9722d6/fastq_pass/FAK36034_1c11934bf425d689c4359d9929334e23470cdcdd_0.fastq
 ```
 
-# Identify differential isoform expression between treated D. melanogaster versus non-treated D. melanogaster
-
 ## Set up reference files
 
-### Download D. melanogaster and wMel reference files
+### Download D. melanogaster, wMel, and SINV reference files
 
 ##### Commands:
 ```{bash, eval = F}
@@ -102,6 +116,21 @@ wget -O "$WORKING_DIR"/references/wMel.gff.gz ftp://ftp.ncbi.nlm.nih.gov/genomes
 gunzip "$WORKING_DIR"/references/wMel.fna.gz
 gunzip "$WORKING_DIR"/references/wMel.gff.gz
 
+## SINV
+wget -O "$WORKING_DIR"/references/GCA_000860545.1_ViralProj15316_genomic.fna.gz  ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/860/545/GCA_000860545.1_ViralProj15316/GCA_000860545.1_ViralProj15316_genomic.fna.gz
+gunzip "$WORKING_DIR"/references/GCA_000860545.1_ViralProj15316_genomic.fna.gz 
+```
+
+### Create FASTA for the spike sequence
+
+##### Commands:
+```{bash, eval = F}
+vim "$WORKING_DIR"/references/yeast_enolase.fasta
+```
+
+```{bash, eval = F}
+>YHR174W ENO2 SGDID:S000001217, Chr VIII from 451327-452640, Genome Release 64-2-1, Verified ORF, "Enolase II, a phosphopyruvate hydratase; catalyzes conversion of 2-phosphoglycerate to phosphoenolpyruvate during glycolysis and the reverse reaction during gluconeogenesis; expression induced in response to glucose; ENO2 has a paralog, ENO1, that arose from the whole genome duplication"
+ATGGCTGTCTCTAAAGTTTACGCTAGATCCGTCTACGACTCCCGTGGTAACCCAACCGTCGAAGTCGAATTAACCACCGAAAAGGGTGTTTTCAGATCCATTGTTCCATCTGGTGCCTCCACCGGTGTCCACGAAGCTTTGGAAATGAGAGATGAAGACAAATCCAAGTGGATGGGTAAGGGTGTTATGAACGCTGTCAACAACGTCAACAACGTCATTGCTGCTGCTTTCGTCAAGGCCAACCTAGATGTTAAGGACCAAAAGGCCGTCGATGACTTCTTGTTGTCTTTGGATGGTACCGCCAACAAGTCCAAGTTGGGTGCTAACGCTATCTTGGGTGTCTCCATGGCCGCTGCTAGAGCCGCTGCTGCTGAAAAGAACGTCCCATTGTACCAACATTTGGCTGACTTGTCTAAGTCCAAGACCTCTCCATACGTTTTGCCAGTTCCATTCTTGAACGTTTTGAACGGTGGTTCCCACGCTGGTGGTGCTTTGGCTTTGCAAGAATTCATGATTGCTCCAACTGGTGCTAAGACCTTCGCTGAAGCCATGAGAATTGGTTCCGAAGTTTACCACAACTTGAAGTCTTTGACCAAGAAGAGATACGGTGCTTCTGCCGGTAACGTCGGTGACGAAGGTGGTGTTGCTCCAAACATTCAAACCGCTGAAGAAGCTTTGGACTTGATTGTTGACGCTATCAAGGCTGCTGGTCACGACGGTAAGGTCAAGATCGGTTTGGACTGTGCTTCCTCTGAATTCTTCAAGGACGGTAAGTACGACTTGGACTTCAAGAACCCAGAATCTGACAAATCCAAGTGGTTGACTGGTGTCGAATTAGCTGACATGTACCACTCCTTGATGAAGAGATACCCAATTGTCTCCATCGAAGATCCATTTGCTGAAGATGACTGGGAAGCTTGGTCTCACTTCTTCAAGACCGCTGGTATCCAAATTGTTGCTGATGACTTGACTGTCACCAACCCAGCTAGAATTGCTACCGCCATCGAAAAGAAGGCTGCTGACGCTTTGTTGTTGAAGGTTAACCAAATCGGTACCTTGTCTGAATCCATCAAGGCTGCTCAAGACTCTTTCGCTGCCAACTGGGGTGTTATGGTTTCCCACAGATCTGGTGAAACTGAAGACACTTTCATTGCTGACTTGGTTGTCGGTTTGAGAACTGGTCAAATCAAGACTGGTGCTCCAGCTAGATCCGAAAGATTGGCTAAGTTGAACCAATTGTTGAGAATCGAAGAAGAATTGGGTGACAAGGCTGTCTACGCCGGTGAAAACTTCCACCACGGTGACAAGTTGTAA
 ```
 
 ### Create D. melanogaster and wMel combined reference files
@@ -115,9 +144,118 @@ awk '$3 == "gene" || $3 == "exon" {print $0}' "$WORKING_DIR"/references/combined
 mv "$WORKING_DIR"/references/temp.gff "$WORKING_DIR"/references/combined_dmelanogaster_wMel.gff
 ```
 
+### Create D. melanogaster, wMel, SINV, and spike combined reference files
+
+
+```{bash, eval = F}
+cat "$WORKING_DIR"/references/dmelanogaster.fna "$WORKING_DIR"/references/wMel.fna "$WORKING_DIR"/references/GCA_000860545.1_ViralProj15316_genomic.fna "$WORKING_DIR"/references/yeast_enolase.fasta > "$WORKING_DIR"/references/combined.fna
+```
+
+# Count the number of reads in each sample that mapped to D. melanogaster, wMel, SINV, and the spike sequence
+
+## Align long reads to combined D. melanogaster, wMel, SINV, and spike combined reference
+
+##### Input Sets:
+```{bash, eval = F}
+REF_GENE_FNA=/local/projects-t3/EBMAL/mchung_dir/amelia/references/combined.fna
+THREADS=4
+## in vitro
+OUTPUT_PREFIX="$WORKING_DIR"/bam/invitro_all
+FASTQ=/usr/local/projects/RDMIN/SEQUENCE/20190215/SINV_IVT/20190215_1549_MN21969_FAJ05343_c9ab6447/fastq_pass/FAJ05343_207c601fce7a926411ae726282c35aed37ce5e1f_0.fastq
+
+## non-treated
+OUTPUT_PREFIX="$WORKING_DIR"/bam/nontreated_all
+FASTQ=/local/aberdeen2rw/julie/Matt_dir/amelia/nontreated_native.fastq
+
+## tet-treated
+OUTPUT_PREFIX="$WORKING_DIR"/bam/tettreated_all
+FASTQ=/usr/local/projects/RDMIN/SEQUENCE/20190307/JW18_Tet_1/20190307_1511_MN21969_FAK36034_cc9722d6/fastq_pass/FAK36034_1c11934bf425d689c4359d9929334e23470cdcdd_0.fastq
+```
+
+##### Commands:
+```{bash, eval = F}
+echo -e ""$MINIMAP2_BIN_DIR"/minimap2 -ax splice -uf -k14 -t "$THREADS" "$REF_GENE_FNA" "$FASTQ" | "$SAMTOOLS_BIN_DIR"/samtools view -bho "$OUTPUT_PREFIX".bam -" | qsub -q threaded.q  -pe thread "$THREADS" -P jdhotopp-lab -l mem_free=5G -N minimap2 -wd "$WORKING_DIR"
+```
+
+## Find number of reads that map to D. melanogaster, wMel, SINV, and spike
+
+##### Input Sets:
+```{bash, eval = F}
+## in vitro
+BAM="$WORKING_DIR"/bam/invitro_all.bam
+
+## non-treated
+BAM="$WORKING_DIR"/bam/nontreated_all.bam
+
+## tet-treated
+BAM="$WORKING_DIR"/bam/tettreated_all.bam
+```
+
+### D. melanogaster
+##### Commands:
+```{bash, eval = F}
+"$SAMTOOLS_BIN_DIR"/samtools view -F4 "$BAM" | grep -v NC_002978.6 | grep -v J02363.1 | grep -v YHR174W | cut -f1 | sort -n | uniq | wc -l
+```
+
+in vitro: 0  
+non-treated: 419057  
+tet-treated: 264036  
+
+### wMel
+##### Commands:
+```{bash, eval = F}
+"$SAMTOOLS_BIN_DIR"/samtools view -F4 "$BAM" | grep NC_002978.6 | cut -f1 | sort -n | uniq | wc -l
+```
+
+in vitro: 0  
+non-treated: 219  
+tet-treated: 135  
+
+### SINV
+##### Commands:
+```{bash, eval = F}
+"$SAMTOOLS_BIN_DIR"/samtools view -F4 "$BAM" | grep J02363.1 | cut -f1 | sort -n | uniq | wc -l
+```
+
+in vitro: 521  
+non-treated: 540  
+tet-treated: 1  
+
+### spike
+##### Commands:
+```{bash, eval = F}
+"$SAMTOOLS_BIN_DIR"/samtools view -F4 "$BAM" | grep YHR174W | cut -f1 | sort -n | uniq | wc -l
+```
+
+in vitro: 11512  
+non-treated: 10023  
+tet-treated: 4008   
+
+
+##### Input Sets:
+```{bash, eval = F}
+REF_GENE_FNA=/local/projects-t3/EBMAL/mchung_dir/amelia/references/combined.fna
+THREADS=4
+
+## non-treated
+OUTPUT_PREFIX="$WORKING_DIR"/bam/invitro_all
+FASTQ=/usr/local/projects/RDMIN/SEQUENCE/20190215/SINV_IVT/20190215_1549_MN21969_FAJ05343_c9ab6447/fastq_pass/FAJ05343_207c601fce7a926411ae726282c35aed37ce5e1f_0.fastq
+
+## non-treated
+OUTPUT_PREFIX="$WORKING_DIR"/bam/nontreated_all
+FASTQ=/local/aberdeen2rw/julie/Matt_dir/amelia/nontreated_native.fastq
+
+## tet-treated
+OUTPUT_PREFIX="$WORKING_DIR"/bam/tettreated_all
+FASTQ=/usr/local/projects/RDMIN/SEQUENCE/20190307/JW18_Tet_1/20190307_1511_MN21969_FAK36034_cc9722d6/fastq_pass/FAK36034_1c11934bf425d689c4359d9929334e23470cdcdd_0.fastq
+```
+
+# Identify differential isoform expression between treated D. melanogaster versus non-treated D. melanogaster
+
 ## Align long reads to combined D. melanogaster and wMel reference
 
-### Align long reads from non-treated and tet-treated
+##### Input Sets:
+
 ```{bash, eval = F}
 REF_FNA="$WORKING_DIR"/references/combined_dmelanogaster_wMel.fna
 THREADS=16
@@ -135,7 +273,7 @@ FASTQ=/usr/local/projects/RDMIN/SEQUENCE/20190307/JW18_Tet_1/20190307_1511_MN219
 echo -e ""$MINIMAP2_BIN_DIR"/minimap2 -ax splice --MD -uf -k14 -t "$THREADS" --secondary=yes "$REF_FNA" "$FASTQ" | "$SAMTOOLS_BIN_DIR"/samtools view -bho "$OUTPUT_PREFIX".bam -" | qsub -q threaded.q  -pe thread "$THREADS" -P jdhotopp-lab -l mem_free=5G -N minimap2 -wd "$WORKING_DIR"
 ```
 
-### Sort and index BAM files
+## Sort and index BAM files
 
 ##### Input Sets:
 ```{bash, eval = F}
@@ -218,26 +356,6 @@ FASTQ=/local/aberdeen2rw/julie/Matt_dir/amelia/nontreated_native.fastq
 ## tet-treated
 OUTPUT_PREFIX="$WORKING_DIR"/bam/tettreated
 FASTQ=/usr/local/projects/RDMIN/SEQUENCE/20190307/JW18_Tet_1/20190307_1511_MN21969_FAK36034_cc9722d6/fastq_pass/FAK36034_1c11934bf425d689c4359d9929334e23470cdcdd_0.fastq
-
-########3
-
-REF_GENE_FNA=/local/projects-t3/EBMAL/mchung_dir/amelia/references/combined.fna
-THREADS=4
-
-## non-treated
-OUTPUT_PREFIX="$WORKING_DIR"/bam/invitro_all
-FASTQ=/usr/local/projects/RDMIN/SEQUENCE/20190215/SINV_IVT/20190215_1549_MN21969_FAJ05343_c9ab6447/fastq_pass/FAJ05343_207c601fce7a926411ae726282c35aed37ce5e1f_0.fastq
-
-## non-treated
-OUTPUT_PREFIX="$WORKING_DIR"/bam/nontreated_all
-FASTQ=/local/aberdeen2rw/julie/Matt_dir/amelia/nontreated_native.fastq
-
-## tet-treated
-OUTPUT_PREFIX="$WORKING_DIR"/bam/tettreated_all
-FASTQ=/usr/local/projects/RDMIN/SEQUENCE/20190307/JW18_Tet_1/20190307_1511_MN21969_FAK36034_cc9722d6/fastq_pass/FAK36034_1c11934bf425d689c4359d9929334e23470cdcdd_0.fastq
-
-
-
 ```
 
 ##### Commands:
@@ -268,14 +386,12 @@ echo -e ""$SALMON_BIN_DIR"/salmon quant -t "$REF_GENE_FNA" --libType A -a "$BAM"
 
 # Identify differential modification in SINV between tet-treated D. melanogaster versus non-treated D. melanogaster
 
-## Set up reference files
-
 ## Resquiggle the MinION FAST5 files
 
 ##### Input Sets:
 ```{bash, eval = F}
 THREADS=16
-REF_TRANSCRIPT_FNA=/local/projects-t3/EBMAL/mchung_dir/amelia/references/GCA_000860545.1_ViralProj15316_genomic.fna
+REF_TRANSCRIPT_FNA="$WORKING_DIR"/references/GCA_000860545.1_ViralProj15316_genomic.fna
 
 ## in vitro
 FAST5_DIR=/local/aberdeen2rw/julie/Matt_dir/amelia/invitro_fast5
@@ -318,11 +434,20 @@ tet-treated
    100.0% ( 304309 reads) : Alignment not produced
 ```
 
-## Detect base modifications in the tet-treated and non-treated samples using Tombo de novo mode
+## Detect base modifications in the tet-treated and non-treated samples using Tombo 
+
+Tombo was only run for the in vitro and non-treated data sets because the tet-treated data set had only 1 read mapping to SINV.
+### Run Tombo in de novo mode for detecting modifications
+
+### Detect modifications using Tombo de novo mode
 
 ##### Input Sets:
 ```{bash, eval = F}
 THREADS=16
+
+## in vitro
+FAST5_DIR=/local/aberdeen2rw/julie/Matt_dir/amelia/invitro_fast5
+FASTQ_FILE="$WORKING_DIR"/tombo/invitro
 
 ## non-treated
 FAST5_DIR=/local/aberdeen2rw/julie/Matt_dir/amelia/native_fast5
@@ -338,11 +463,15 @@ echo -e ""$TOMBO_BIN_DIR"/tombo detect_modifications de_novo \
    --processes "$THREADS"" | qsub -P jdhotopp-lab -q threaded.q -pe thread "$THREADS" -l mem_free=5G -N tombo_detect_modifications_de_novo -wd "$FAST5_DIR"
 ```
 
-## Output dampened fraction values for each position from Tombo de novo mode
+### Output dampened fraction values for each position from Tombo de novo mode
 
 ##### Input Sets:
 ```{bash, eval = F}
 THREADS=16
+
+## in vitro
+FAST5_DIR=/local/aberdeen2rw/julie/Matt_dir/amelia/invitro_fast5
+FASTQ_FILE="$WORKING_DIR"/tombo/invitro
 
 ## non-treated
 FAST5_DIR=/local/aberdeen2rw/julie/Matt_dir/amelia/native_fast5
@@ -351,14 +480,20 @@ STATS_PREFIX="$WORKING_DIR"/tombo/nontreated
 
 ##### Commands:
 ```{bash, eval = F}
-echo -e ""$TOMBO_BIN_DIR"/tombo text_output browser_files --fast5-basedirs "$FAST5_DIR" --statistics-filename "$STATS_PREFIX".denovo_base_detection.tombo.stats --file-types dampened_fraction --browser-file-basename "$STATS_PREFIX".denovo_base_detection" | qsub -P jdhotopp-lab -q threaded.q -pe thread "$THREADS" -l mem_free=50G -N tombo_text_output_browser_files -wd "$(dirname "$STATS_PREFIX")"
+echo -e ""$TOMBO_BIN_DIR"/tombo text_output browser_files --fast5-basedirs "$FAST5_DIR" --statistics-filename "$STATS_PREFIX".denovo_base_detection.tombo.stats --file-types dampened_fraction statistic --browser-file-basename "$STATS_PREFIX".denovo_base_detection" | qsub -P jdhotopp-lab -q threaded.q -pe thread "$THREADS" -l mem_free=50G -N tombo_text_output_browser_files -wd "$(dirname "$STATS_PREFIX")"
 ```
 
-## Detect base modifications in the tet-treated and non-treated samples using Tombo 5mC alternative model mode
+## Run Tombo in 5mC alternative model mode
+
+### Detect modifications using Tombo 5mC alternative model mode
 
 ##### Input Sets:
 ```{bash, eval = F}
 THREADS=16
+
+## in vitro
+FAST5_DIR=/local/aberdeen2rw/julie/Matt_dir/amelia/invitro_fast5
+FASTQ_FILE="$WORKING_DIR"/tombo/invitro
 
 ## non-treated
 FAST5_DIR=/local/aberdeen2rw/julie/Matt_dir/amelia/native_fast5
@@ -374,11 +509,15 @@ echo -e ""$TOMBO_BIN_DIR"/tombo detect_modifications alternative_model --fast5-b
   --processes "$THREADS"" | qsub -P jdhotopp-lab -q threaded.q -pe thread "$THREADS" -l mem_free=5G -N tombo_detect_modifications -wd "$FAST5_DIR"
 ```
 
-## Output dampened fraction values for each position from Tombo 5mC alternative model mode
+### Output dampened fraction values for each position from Tombo 5mC alternative model mode
 
 ##### Input Sets:
 ```{bash, eval = F}
 THREADS=16
+
+## in vitro
+FAST5_DIR=/local/aberdeen2rw/julie/Matt_dir/amelia/invitro_fast5
+FASTQ_FILE="$WORKING_DIR"/tombo/invitro
 
 ## non-treated
 FAST5_DIR=/local/aberdeen2rw/julie/Matt_dir/amelia/native_fast5
@@ -387,7 +526,58 @@ STATS_PREFIX="$WORKING_DIR"/tombo/nontreated
 
 ##### Commands
 ```{bash, eval = F}
-echo -e ""$TOMBO_BIN_DIR"/tombo text_output browser_files --fast5-basedirs "$FAST5_DIR" --statistics-filename "$STATS_PREFIX".5mC_base_detection.5mC.tombo.stats --file-types dampened_fraction --browser-file-basename "$STATS_PREFIX".5mC_base_detection" | qsub -P jdhotopp-lab -q threaded.q -pe thread "$THREADS" -l mem_free=50G -N tombo_text_output_browser_files -wd "$(dirname "$STATS_PREFIX")"
+echo -e ""$TOMBO_BIN_DIR"/tombo text_output browser_files --fast5-basedirs "$FAST5_DIR" --statistics-filename "$STATS_PREFIX".5mC_base_detection.5mC.tombo.stats --file-types dampened_fraction statistic --browser-file-basename "$STATS_PREFIX".5mC_base_detection" | qsub -P jdhotopp-lab -q threaded.q -pe thread "$THREADS" -l mem_free=50G -N tombo_text_output_browser_files -wd "$(dirname "$STATS_PREFIX")"
+```
+
+## Run Tombo in model_sample_compare mode
+
+### Detect modifications using Tombo model_sample_compare mode
+
+##### Input Sets:
+```{bash, eval = F}
+THREADS=16
+
+## non-treated
+FAST5_DIR1=/local/aberdeen2rw/julie/Matt_dir/amelia/native_fast5
+FAST5_DIR2=/local/aberdeen2rw/julie/Matt_dir/amelia/invitro_fast5
+
+STATS_PREFIX="$WORKING_DIR"/tombo/model_sample_compare
+```
+
+##### Commands:
+```{bash, eval = F}
+echo -e ""$TOMBO_BIN_DIR"/tombo detect_modifications model_sample_compare --fast5-basedirs "$FAST5_DIR1" --control-fast5-basedirs "$FAST5_DIR2" \
+  --statistics-file-basename "$STATS_PREFIX" \
+  --processes "$THREADS"" | qsub -P jdhotopp-lab -q threaded.q -pe thread "$THREADS" -l mem_free=5G -N tombo_detect_modifications -wd "$(dirname "$STATS_PREFIX")"
+```
+
+### Output dampened fraction values for each position from Tombo model_sample_compare mode
+
+##### Input Sets:
+```{bash, eval = F}
+STATS_PREFIX="$WORKING_DIR"/tombo/model_sample_compare
+```
+##### Commands:
+```{bash, eval = F}
+echo -e ""$TOMBO_BIN_DIR"/tombo text_output browser_files --statistics-filename "$STATS_PREFIX".tombo.stats --file-types dampened_fraction statistic --browser-file-basename "$STATS_PREFIX"" | qsub -P jdhotopp-lab -l mem_free=50G -N tombo_text_output_browser_files -wd "$(dirname "$STATS_PREFIX")"
+```
+
+## Plot Tombo results from each run mode to identify modified positions
+
+### Set R inputs
+```{R}
+DAMPENED_FRACTION.PATH.LIST <- c("Z:/EBMAL/mchung_dir/amelia/tombo/nontreated.5mC_base_detection.dampened_fraction_modified_reads.plus.wig",
+                                 "Z:/EBMAL/mchung_dir/amelia/tombo/nontreated.denovo_base_detection.dampened_fraction_modified_reads.plus.wig",
+                                 "Z:/EBMAL/mchung_dir/amelia/tombo/invitro.5mC_base_detection.dampened_fraction_modified_reads.plus.wig",
+                                 "Z:/EBMAL/mchung_dir/amelia/tombo/invitro.denovo_base_detection.dampened_fraction_modified_reads.plus.wig",
+                                 "Z:/EBMAL/mchung_dir/amelia/tombo/model_sample_compare.dampened_fraction_modified_reads.plus.wig")
+```
+
+## Load R packages and view sessionInfo
+
+```{R}
+
+sessionInfo()
 ```
 
 

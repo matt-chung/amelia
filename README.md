@@ -29,12 +29,16 @@
   - [Run TALON as the annotator](#run-talon-as-the-annotator)
     - [Initialize TALON database with existing annotation](#initialize-talon-database-with-existing-annotation)
     - [Create SAM files](#create-sam-files)
-    - [Create TALON config files](#create-talon-config-files)
+    - [Create TALON config file](#create-talon-config-file)
     - [Use TALON to create a new annotation from the long read data](#use-talon-to-create-a-new-annotation-from-the-long-read-data)
+    - [Create TALON pairings file](#create-talon-pairings-file)
     - [Filter TALON transcripts](#filter-talon-transcripts)
-    - [Assess TALON summary file](#assess-talon-summary-file)
-    - [Generate TALON abundance file](#generate-talon-abundance-file)
-    - [Create TALON GTF file](#create-talon-gtf-file)
+    - [Assess TALON run summary](#assess-talon-run-summary)
+    - [Generate TALON abundance file and GTF](#generate-talon-abundance-file-and-gtf)
+  - [Calculate average exon depth for the TALON predicted exons](#calculate-average-exon-depth-for-the-talon-predicted-exons)
+    - [Split BAM files by strand](#split-bam-files-by-strand)
+    - [Create list of stranded BAM files](#create-list-of-stranded-bam-files)
+    - [Calculate average exon depth for each TALON exon using the stranded BAM files](#calculate-average-exon-depth-for-each-talon-exon-using-the-stranded-bam-files)
 - [Identify differential modification in SINV between tet-treated D. melanogaster versus non-treated D. melanogaster](#identify-differential-modification-in-sinv-between-tet-treated-d-melanogaster-versus-non-treated-d-melanogaster)
   - [Resquiggle the MinION FAST5 files](#resquiggle-the-minion-fast5-files)
   - [Detect base modifications in the tet-treated and non-treated samples using Tombo](#detect-base-modifications-in-the-tet-treated-and-non-treated-samples-using-tombo)
@@ -54,7 +58,6 @@
   - [Create a plot for each dampened fraction file](#create-a-plot-for-each-dampened-fraction-file)
   - [Create a plot for only the C positions in the dampened fraction file for model_sample_compare](#create-a-plot-for-only-the-c-positions-in-the-dampened-fraction-file-for-model_sample_compare)
   - [Create a plot for each dampened fraction file](#create-a-plot-for-each-dampened-fraction-file-1)
-  - [aaaa](#aaaa)
 
 <!-- /MarkdownTOC -->
 
@@ -91,6 +94,7 @@ WORKING_DIR=/local/projects-t3/EBMAL/mchung_dir/amelia
 mkdir -p "$WORKING_DIR"/references
 mkdir -p "$WORKING_DIR"/bam
 mkdir -p "$WORKING_DIR"/stringtie
+mkdir -p "$WORKING_DIR"/splice_index_analysis/
 
 mkdir -p "$WORKING_DIR"/plots
 
@@ -406,16 +410,15 @@ BAM=/local/projects-t3/EBMAL/mchung_dir/amelia/bam/nontreated.bam
 "$SAMTOOLS_BIN_DIR"/samtools view -@ 4 -ho "$(echo "$BAM" | sed "s/[.]sam$//g")" "$BAM"
 ```
 
-### Create TALON config files
+### Create TALON config file
 
 TALON config file is a csv consisting of the sample ID, sample type, sequencing instrument, and SAM path
 
-##### Inputs
+##### Commands
 ```{bash, eval = F}
 vim "$WORKING_DIR"/talon/config.txt
 ```
 
-##### Commands
 ```{bash, eval = F}
 nontreated,nontreated,Oxford_Nanopore_MinION,/local/projects-t3/EBMAL/mchung_dir/amelia/bam/nontreated.sam
 tettreated,tettreated,Oxford_Nanopore_MinION,/local/projects-t3/EBMAL/mchung_dir/amelia/bam/tettreated.sam
@@ -437,26 +440,153 @@ OUTPUT_PREFIX="$WORKING_DIR"/talon/talon
 qsub -q threaded.q  -pe thread "$THREADS" -P jdhotopp-lab -l mem_free=5G -N talon -wd "$(dirname "$OUTPUT_PREFIX")" -b y "$TALON_BIN_DIR"/talon --f="$CONFIG" --db="$DB" --build="$GENOME_BUILD" --t="$THREADS" --o "$OUTPUT_PREFIX"
 ```
 
+### Create TALON pairings file
+
+TALON config file is a csv consisting of a sample pair
+
+##### Commands
+```{bash, eval = F}
+vim "$WORKING_DIR"/talon/pairings.csv
+```
+
+```{bash, eval = F}
+nontreated,tettreated
+```
+
 ### Filter TALON transcripts 
 
+Pass filtered abundance matrix into TALON ($PAIRINGS) where we require transcripts to be either a) known, or b) detected in both replicates (for transcript-level expression).
 
+##### Inputs
 ```{bash, eval = F}
 DB="$WORKING_DIR"/talon/dmelanogaster.db
 ANNOTATION_NAME=dmelanogaster
 GENOME_BUILD=r6.32
-PAIRINGS=/local/projects-t3/EBMAL/mchung_dir/amelia/talon/pairings.csv
+PAIRINGS="$WORKING_DIR"/talon/pairings.csv
 OUTPUT_PREFIX="$WORKING_DIR"/talon/talon
 ```
 
+##### Commands
 ```{bash, eval = F}
-"$TALON_BIN_DIR"/talon_filtered_transcripts --db="$DB" -a "$ANNOTATION_NAME" --b="$GENOME_BUILD" --p="$PAIRINGS" --o="$OUTPUT_PREFIX".csv
+"$TALON_BIN_DIR"/talon_filter_transcripts --db="$DB" -a "$ANNOTATION_NAME" --p="$PAIRINGS" --o="$OUTPUT_PREFIX".csv
 ```
 
-### Assess TALON summary file
+### Assess TALON run summary
 
-### Generate TALON abundance file
+##### Inputs
+```{bash, eval = F}
+DB="$WORKING_DIR"/talon/dmelanogaster.db
+OUTPUT_PREFIX="$WORKING_DIR"/talon/talon
+```
+##### Commands
+```{bash, eval = F}
+"$TALON_BIN_DIR"/talon_summarize --db="$DB" --v --o "$OUTPUT_PREFIX"
+```
 
-### Create TALON GTF file
+```{bash, eval = F}
+---------------nontreated---------------
+Number of reads: 202829
+Known genes: 6705
+Novel genes: 1086
+----Antisense genes: 556
+----Other novel genes: 530
+Known transcripts: 5355
+Novel transcripts: 21111
+----ISM transcripts: 8828
+--------Prefix ISM transcripts: 913
+--------Suffix ISM transcripts: 5967
+----NIC transcripts: 2434
+----NNC transcripts: 5167
+----antisense transcripts: 524
+----genomic transcripts: 3674
+---------------tettreated---------------
+Number of reads: 190386
+Known genes: 6651
+Novel genes: 1108
+----Antisense genes: 570
+----Other novel genes: 538
+Known transcripts: 4731
+Novel transcripts: 19174
+----ISM transcripts: 8059
+--------Prefix ISM transcripts: 701
+--------Suffix ISM transcripts: 5141
+----NIC transcripts: 2043
+----NNC transcripts: 4313
+----antisense transcripts: 526
+----genomic transcripts: 3754
+```
+
+### Generate TALON abundance file and GTF
+
+##### Inputs
+```{bash, eval = F}
+DB="$WORKING_DIR"/talon/dmelanogaster.db
+ANNOTATION_NAME=dmelanogaster
+GENOME_BUILD=r6.32
+OUTPUT_PREFIX="$WORKING_DIR"/talon/talon
+```
+
+##### Commands
+```{bash, eval = F}
+"$TALON_BIN_DIR"/talon_abundance --db="$DB" -a "$ANNOTATION_NAME" --b="$GENOME_BUILD" --whitelist "$OUTPUT_PREFIX".csv --o="$OUTPUT_PREFIX"
+"$TALON_BIN_DIR"/talon_create_GTF --db="$DB" -a "$ANNOTATION_NAME" --b="$GENOME_BUILD" --whitelist "$OUTPUT_PREFIX".csv --o="$OUTPUT_PREFIX"
+```
+
+## Calculate average exon depth for the TALON predicted exons
+
+### Split BAM files by strand
+
+##### Inputs
+```{bash, eval = F}
+THREADS=4
+
+## non-treated
+BAM=/local/projects-t3/EBMAL/mchung_dir/amelia/bam/nontreated.bam
+
+## tet-treated
+BAM=/local/projects-t3/EBMAL/mchung_dir/amelia/bam/nontreated.bam
+```
+##### Commands
+```{bash, eval = F}
+"$SAMTOOLS_BIN_DIR"/samtools view -@ "$THREADS" -F16 -o "$(echo "$BAM" | sed "s/[.]bam$/.f.bam/g")" "$BAM"
+"$SAMTOOLS_BIN_DIR"/samtools view -@ "$THREADS" -f16 -o "$(echo "$BAM" | sed "s/[.]bam$/.r.bam/g")" "$BAM"
+```
+
+### Create list of stranded BAM files
+
+##### Commands
+```{bash, eval = F}
+vim "$WORKING_DIR"/splice_index_analysis/bam.list
+```
+
+```{bash, eval = F}
+/local/projects-t3/EBMAL/mchung_dir/amelia/bam/nontreated.sortedbyposition.f.bam
+/local/projects-t3/EBMAL/mchung_dir/amelia/bam/nontreated.sortedbyposition.r.bam
+/local/projects-t3/EBMAL/mchung_dir/amelia/bam/tettreated.sortedbyposition.f.bam
+/local/projects-t3/EBMAL/mchung_dir/amelia/bam/tettreated.sortedbyposition.r.bam
+```
+### Calculate average exon depth for each TALON exon using the stranded BAM files
+
+##### Inputs
+```{bash, eval = F}
+BAM_LIST="$WORKING_DIR"/splice_index_analysis/bam.list
+GTF="$WORKING_DIR"/talon/talon_talon.gtf
+```
+
+##### Commands
+```{bash, eval = F}
+rm "$WORKING_DIR"/splice_index_analysis/avg_exon.depth
+awk -F "\t" '$3 == "exon" {print $9}' "$GTF" | sed "s/.* exon_id .//g" | sed "s/.;.*//g" | sort -n | uniq | while read exon
+do
+  chr="$(grep " exon_id .$exon.;" "$GTF" | awk -F "\t" '$3 == "exon" {print $1}' | uniq)"
+  start="$(grep " exon_id .$exon.;" "$GTF" | awk -F "\t" '$3 == "exon" {print $4}' | uniq)"
+  stop="$(grep " exon_id .$exon.;" "$GTF" | awk -F "\t" '$3 == "exon" {print $5}' | uniq)"
+
+  "$SAMTOOLS_BIN_DIR"/samtools depth -aa -d 1000000 -r "$chr":"$start"-"$stop" -f "$BAM_LIST" > "$WORKING_DIR"/splice_index_analysis/gene.subset.depth
+
+  echo -e ""$exon"\t"$(awk '{ sum += $3 } END { if (NR > 0) print sum / NR }' "$WORKING_DIR"/splice_index_analysis/gene.subset.depth)"""\t"$(awk '{ sum += $4 } END { if (NR > 0) print sum / NR }' "$WORKING_DIR"/splice_index_analysis/gene.subset.depth)"""\t"$(awk '{ sum += $5 } END { if (NR > 0) print sum / NR }' "$WORKING_DIR"/splice_index_analysis/gene.subset.depth)"""\t"$(awk '{ sum += $6 } END { if (NR > 0) print sum / NR }' "$WORKING_DIR"/splice_index_analysis/gene.subset.depth)"""" >> "$WORKING_DIR"/splice_index_analysis/avg_exon.depth
+done
+```
 
 # Identify differential modification in SINV between tet-treated D. melanogaster versus non-treated D. melanogaster
 
@@ -759,89 +889,3 @@ C: in vitro - de novo base detection
 D: in vitro - 5mC alternative model base detection  
 E: nontreated v. in vitro - model sample compare  
 F: nontreated v. in vitro - model sample compare C positions  
-
-## aaaa
-
-
-
-
-
-```{bash, eval = F}
-"$TALON_BIN_DIR"/talon_summarize --db="$DB" --v --o test
-```
-
-```{bash, eval = F}
----------------nontreated---------------
-Number of reads: 202829
-Known genes: 6705
-Novel genes: 1086
-----Antisense genes: 556
-----Other novel genes: 530
-Known transcripts: 5355
-Novel transcripts: 21111
-----ISM transcripts: 8828
---------Prefix ISM transcripts: 913
---------Suffix ISM transcripts: 5967
-----NIC transcripts: 2434
-----NNC transcripts: 5167
-----antisense transcripts: 524
-----genomic transcripts: 3674
----------------tettreated---------------
-Number of reads: 190386
-Known genes: 6651
-Novel genes: 1108
-----Antisense genes: 570
-----Other novel genes: 538
-Known transcripts: 4731
-Novel transcripts: 19174
-----ISM transcripts: 8059
---------Prefix ISM transcripts: 701
---------Suffix ISM transcripts: 5141
-----NIC transcripts: 2043
-----NNC transcripts: 4313
-----antisense transcripts: 526
-----genomic transcripts: 3754
-```
-
-
-
-
-
-
-```{bash, eval = F}
-"$TALON_BIN_DIR"/talon_abundance --db="$DB" -a "$ANNOTATION_NAME" --b="$GENOME_BUILD" --whitelist "$OUTPUT_PREFIX".csv --o="$OUTPUT_PREFIX"
-```
-
-```{bash, eval = F}
-"$TALON_BIN_DIR"/talon_create_GTF --db="$DB" -a "$ANNOTATION_NAME" --b="$GENOME_BUILD" --whitelist "$OUTPUT_PREFIX".csv --o="$OUTPUT_PREFIX"
-```
-
-"$SAMTOOLS_BIN_DIR"/samtools view -F16 -o "$(echo "$BAM" | sed "s/[.]bam$/.f.bam/g")" "$BAM"
-"$SAMTOOLS_BIN_DIR"/samtools view -f16 -o "$(echo "$BAM" | sed "s/[.]bam$/.r.bam/g")" "$BAM"
-
-
-awk -F "\t" '$3 == "gene" {print $1"\t"$4"\t"$5"\t"$9}' "$GTF" > "$WORKING_DIR"/splice_index_analysis/talon_gene.bed
-"$SAMTOOLS_BIN_DIR"/samtools depth -aa -d 1000000 -b "$WORKING_DIR"/splice_index_analysis/talon_gene.bed -f "$WORKING_DIR"/splice_index_analysis/bam.list > "$WORKING_DIR"/splice_index_analysis/gene.depth
-
-
-
-WORKING_DIR=/local/projects-t3/EBMAL/mchung_dir/amelia
-SAMTOOLS_BIN_DIR=/usr/local/packages/samtools-1.9/bin
-
-GTF="$WORKING_DIR"/talon/talon_talon.gtf
-
-rm "$WORKING_DIR"/splice_index_analysis/avg_exon2.depth
-awk -F "\t" '$3 == "exon" {print $9}' "$GTF" | sed "s/.* exon_id .//g" | sed "s/.;.*//g" | sort -n | uniq | while read exon
-do
-  chr="$(grep " exon_id .$exon.;" "$GTF" | awk -F "\t" '$3 == "exon" {print $1}' | uniq)"
-  start="$(grep " exon_id .$exon.;" "$GTF" | awk -F "\t" '$3 == "exon" {print $4}' | uniq)"
-  stop="$(grep " exon_id .$exon.;" "$GTF" | awk -F "\t" '$3 == "exon" {print $5}' | uniq)"
-
-  "$SAMTOOLS_BIN_DIR"/samtools depth -aa -d 1000000 -r "$chr":"$start"-"$stop" -f "$WORKING_DIR"/splice_index_analysis/bam.list > "$WORKING_DIR"/splice_index_analysis/gene.subset2.depth
-
-  echo -e ""$exon"\t"$(awk '{ sum += $3 } END { if (NR > 0) print sum / NR }' "$WORKING_DIR"/splice_index_analysis/gene.subset2.depth)"""\t"$(awk '{ sum += $4 } END { if (NR > 0) print sum / NR }' "$WORKING_DIR"/splice_index_analysis/gene.subset2.depth)"""\t"$(awk '{ sum += $5 } END { if (NR > 0) print sum / NR }' "$WORKING_DIR"/splice_index_analysis/gene.subset2.depth)"""\t"$(awk '{ sum += $6 } END { if (NR > 0) print sum / NR }' "$WORKING_DIR"/splice_index_analysis/gene.subset2.depth)"""" >> "$WORKING_DIR"/splice_index_analysis/avg_exon2.depth
-done
-qsub -P jdhotopp-lab -l mem_free=5G -N splice_index_analysis -wd "$WORKING_DIR"/splice_index_analysis -b y "$WORKING_DIR"/splice_index_analysis/calc_exon_depth.sh
-
-qsub -P jdhotopp-lab -l mem_free=5G -N splice_index_analysis -wd "$WORKING_DIR"/splice_index_analysis -b y "$WORKING_DIR"/splice_index_analysis/calc_exon_depth2.sh
-

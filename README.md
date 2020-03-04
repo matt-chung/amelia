@@ -12,6 +12,7 @@
     - [Create D. melanogaster and wMel combined reference files](#create-d-melanogaster-and-wmel-combined-reference-files)
     - [Create D. melanogaster, wMel, SINV, and spike combined reference files](#create-d-melanogaster-wmel-sinv-and-spike-combined-reference-files)
 - [Count the number of reads in each sample that mapped to D. melanogaster, wMel, SINV, and the spike sequence](#count-the-number-of-reads-in-each-sample-that-mapped-to-d-melanogaster-wmel-sinv-and-the-spike-sequence)
+  - [Count the number of total reads in each sample](#count-the-number-of-total-reads-in-each-sample)
   - [Align long reads to combined D. melanogaster, wMel, SINV, and spike combined reference](#align-long-reads-to-combined-d-melanogaster-wmel-sinv-and-spike-combined-reference)
   - [Find number of reads that map to D. melanogaster, wMel, SINV, and spike](#find-number-of-reads-that-map-to-d-melanogaster-wmel-sinv-and-spike)
     - [D. melanogaster](#d-melanogaster)
@@ -22,11 +23,18 @@
   - [Align long reads to combined D. melanogaster and wMel reference](#align-long-reads-to-combined-d-melanogaster-and-wmel-reference)
   - [Sort and index BAM files](#sort-and-index-bam-files)
   - [Create annotations for the non-treated and tet-treated samples from long-reads](#create-annotations-for-the-non-treated-and-tet-treated-samples-from-long-reads)
-  - [Combine annotations made from the separate long read samples](#combine-annotations-made-from-the-separate-long-read-samples)
-  - [Quantitate long-read FASTQs using combined GFF](#quantitate-long-read-fastqs-using-combined-gff)
-    - [Create transcript FASTA from combined GFF](#create-transcript-fasta-from-combined-gff)
-    - [Align long reads to transcript FASTA](#align-long-reads-to-transcript-fasta)
-    - [Quantitate transcripts using Salmon](#quantitate-transcripts-using-salmon)
+    - [Run Stringtie as the annotator](#run-stringtie-as-the-annotator)
+      - [Use Stringtie to create a new annotation from the long read data](#use-stringtie-to-create-a-new-annotation-from-the-long-read-data)
+    - [Combine Stringtie annotations made from the separate long read samples](#combine-stringtie-annotations-made-from-the-separate-long-read-samples)
+  - [Run TALON as the annotator](#run-talon-as-the-annotator)
+    - [Initialize TALON database with existing annotation](#initialize-talon-database-with-existing-annotation)
+    - [Create SAM files](#create-sam-files)
+    - [Create TALON config files](#create-talon-config-files)
+    - [Use TALON to create a new annotation from the long read data](#use-talon-to-create-a-new-annotation-from-the-long-read-data)
+    - [Filter TALON transcripts](#filter-talon-transcripts)
+    - [Assess TALON summary file](#assess-talon-summary-file)
+    - [Generate TALON abundance file](#generate-talon-abundance-file)
+    - [Create TALON GTF file](#create-talon-gtf-file)
 - [Identify differential modification in SINV between tet-treated D. melanogaster versus non-treated D. melanogaster](#identify-differential-modification-in-sinv-between-tet-treated-d-melanogaster-versus-non-treated-d-melanogaster)
   - [Resquiggle the MinION FAST5 files](#resquiggle-the-minion-fast5-files)
   - [Detect base modifications in the tet-treated and non-treated samples using Tombo](#detect-base-modifications-in-the-tet-treated-and-non-treated-samples-using-tombo)
@@ -39,9 +47,14 @@
   - [Run Tombo in model_sample_compare mode](#run-tombo-in-model_sample_compare-mode)
     - [Detect modifications using Tombo model_sample_compare mode](#detect-modifications-using-tombo-model_sample_compare-mode)
     - [Output dampened fraction values for each position from Tombo model_sample_compare mode](#output-dampened-fraction-values-for-each-position-from-tombo-model_sample_compare-mode)
+  - [Print out the C positions in the SINV genome](#print-out-the-c-positions-in-the-sinv-genome)
   - [Plot Tombo results from each run mode to identify modified positions](#plot-tombo-results-from-each-run-mode-to-identify-modified-positions)
     - [Set R inputs](#set-r-inputs)
   - [Load R packages and view sessionInfo](#load-r-packages-and-view-sessioninfo)
+  - [Create a plot for each dampened fraction file](#create-a-plot-for-each-dampened-fraction-file)
+  - [Create a plot for only the C positions in the dampened fraction file for model_sample_compare](#create-a-plot-for-only-the-c-positions-in-the-dampened-fraction-file-for-model_sample_compare)
+  - [Create a plot for each dampened fraction file](#create-a-plot-for-each-dampened-fraction-file-1)
+  - [aaaa](#aaaa)
 
 <!-- /MarkdownTOC -->
 
@@ -58,7 +71,6 @@ PYTHON_LIB_PATH=/usr/local/packages/python-3.5/lib
 GFFCOMPARE_BIN_DIR=/usr/local/packages/gffcompare-0.10.5/bin
 GFFREAD_BIN_DIR=/local/aberdeen2rw/julie/Matt_dir/packages/gffread_v0.10.4
 MINIMAP2_BIN_DIR=/local/aberdeen2rw/julie/Matt_dir/packages/minimap2-2.17_x64-linux
-SALMON_BIN_DIR=/local/aberdeen2rw/julie/Matt_dir/packages/salmon_v1.1.0/bin
 SAMTOOLS_BIN_DIR=/usr/local/packages/samtools-1.9/bin
 STRINGTIE_BIN_DIR=/local/aberdeen2rw/julie/Matt_dir/packages/stringtie_v2.1.1
 TALON_BIN_DIR=/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin/
@@ -80,9 +92,9 @@ mkdir -p "$WORKING_DIR"/references
 mkdir -p "$WORKING_DIR"/bam
 mkdir -p "$WORKING_DIR"/stringtie
 
-mkdir -p "$WORKING_DIR"/salmon/nontreated
-mkdir -p "$WORKING_DIR"/salmon/tettreated
+mkdir -p "$WORKING_DIR"/plots
 
+mkdir -p "$WORKING_DIR"/talon
 ```
 
 ```{bash, eval = F}
@@ -113,8 +125,10 @@ gunzip "$WORKING_DIR"/references/dmelanogaster.gtf.gz
 ## wMel
 wget -O "$WORKING_DIR"/references/wMel.fna.gz ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/008/025/GCF_000008025.1_ASM802v1/GCF_000008025.1_ASM802v1_genomic.fna.gz
 wget -O "$WORKING_DIR"/references/wMel.gff.gz ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/008/025/GCF_000008025.1_ASM802v1/GCF_000008025.1_ASM802v1_genomic.gff.gz
+wget -O "$WORKING_DIR"/references/wMel.gtf.gz ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/008/025/GCF_000008025.1_ASM802v1/GCF_000008025.1_ASM802v1_genomic.gtf.gz
 gunzip "$WORKING_DIR"/references/wMel.fna.gz
 gunzip "$WORKING_DIR"/references/wMel.gff.gz
+gunzip "$WORKING_DIR"/references/wMel.gtf.gz
 
 ## SINV
 wget -O "$WORKING_DIR"/references/GCA_000860545.1_ViralProj15316_genomic.fna.gz  ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/860/545/GCA_000860545.1_ViralProj15316/GCA_000860545.1_ViralProj15316_genomic.fna.gz
@@ -139,6 +153,8 @@ ATGGCTGTCTCTAAAGTTTACGCTAGATCCGTCTACGACTCCCGTGGTAACCCAACCGTCGAAGTCGAATTAACCACCGA
 ```{bash, eval = F}
 cat "$WORKING_DIR"/references/dmelanogaster.fna "$WORKING_DIR"/references/wMel.fna > "$WORKING_DIR"/references/combined_dmelanogaster_wMel.fna
 cat "$WORKING_DIR"/references/dmelanogaster.gff "$WORKING_DIR"/references/wMel.gff | grep -v "#" > "$WORKING_DIR"/references/combined_dmelanogaster_wMel.gff
+cat "$WORKING_DIR"/references/dmelanogaster.gff "$WORKING_DIR"/references/wMel.gtf | grep -v "#" > "$WORKING_DIR"/references/combined_dmelanogaster_wMel.gtf
+
 
 awk '$3 == "gene" || $3 == "exon" {print $0}' "$WORKING_DIR"/references/combined_dmelanogaster_wMel.gff > "$WORKING_DIR"/references/temp.gff
 mv "$WORKING_DIR"/references/temp.gff "$WORKING_DIR"/references/combined_dmelanogaster_wMel.gff
@@ -153,12 +169,36 @@ cat "$WORKING_DIR"/references/dmelanogaster.fna "$WORKING_DIR"/references/wMel.f
 
 # Count the number of reads in each sample that mapped to D. melanogaster, wMel, SINV, and the spike sequence
 
+## Count the number of total reads in each sample
+
+##### Input Sets:
+```{bash, eval = F}
+## in vitro
+FASTQ=/usr/local/projects/RDMIN/SEQUENCE/20190215/SINV_IVT/20190215_1549_MN21969_FAJ05343_c9ab6447/fastq_pass/FAJ05343_207c601fce7a926411ae726282c35aed37ce5e1f_0.fastq
+
+## non-treated
+FASTQ=/local/aberdeen2rw/julie/Matt_dir/amelia/nontreated_native.fastq
+
+## tet-treated
+FASTQ=/usr/local/projects/RDMIN/SEQUENCE/20190307/JW18_Tet_1/20190307_1511_MN21969_FAK36034_cc9722d6/fastq_pass/FAK36034_1c11934bf425d689c4359d9929334e23470cdcdd_0.fastq
+```
+
+##### Commands:
+```{bash, eval = F}
+echo $(($(wc -l $FASTQ | awk '{print $1}')/4))
+```
+
+in vitro: 12811 
+non-treated: 448747   
+tet-treated: 304310  
+
 ## Align long reads to combined D. melanogaster, wMel, SINV, and spike combined reference
 
 ##### Input Sets:
 ```{bash, eval = F}
 REF_GENE_FNA=/local/projects-t3/EBMAL/mchung_dir/amelia/references/combined.fna
 THREADS=4
+
 ## in vitro
 OUTPUT_PREFIX="$WORKING_DIR"/bam/invitro_all
 FASTQ=/usr/local/projects/RDMIN/SEQUENCE/20190215/SINV_IVT/20190215_1549_MN21969_FAJ05343_c9ab6447/fastq_pass/FAJ05343_207c601fce7a926411ae726282c35aed37ce5e1f_0.fastq
@@ -294,6 +334,10 @@ BAM="$WORKING_DIR"/bam/tettreated.bam
 
 ## Create annotations for the non-treated and tet-treated samples from long-reads
 
+### Run Stringtie as the annotator
+
+#### Use Stringtie to create a new annotation from the long read data
+
 ##### Input Sets:
 ```{bash, eval = F}
 THREADS=4
@@ -312,7 +356,7 @@ BAM="$WORKING_DIR"/bam/tettreated.sortedbyposition.bam
 "$STRINGTIE_BIN_DIR"/stringtie "$BAM" -l "$FEATURE_PREFIX" -o "$WORKING_DIR"/stringtie/"$(basename "$BAM" | sed "s/[.]bam$/.gtf/g")" -p "$THREADS"
 ```
 
-## Combine annotations made from the separate long read samples
+### Combine Stringtie annotations made from the separate long read samples
 
 ##### Input Sets:
 ```{bash, eval = F}
@@ -327,62 +371,92 @@ GFF2="$WORKING_DIR"/stringtie/tettreated.sortedbyposition.gtf
 "$GFFCOMPARE_BIN_DIR"/gffcompare -C "$GFF1" "$GFF2" -R "$REF_GFF" -o "$OUTPUT_PREFIX"
 ```
 
-## Quantitate long-read FASTQs using combined GFF
+## Run TALON as the annotator
 
-### Create transcript FASTA from combined GFF
+### Initialize TALON database with existing annotation
 
-##### Input Sets:
+##### Inputs
 ```{bash, eval = F}
-REF_FNA="$WORKING_DIR"/references/combined_dmelanogaster_wMel.fna
-GTF="$WORKING_DIR"/stringtie/gffcmp.combined.gtf
+ANNOTATION_NAME=dmelanogaster
+GENOME_BUILD=r6.32
+GTF="$WORKING_DIR"/references/dmelanogaster.gtf
+OUTPUT_DB="$WORKING_DIR"/talon/dmelanogaster
 ```
 
-##### Commands:
+##### Commands
 ```{bash, eval = F}
-"$GFFREAD_BIN_DIR"/gffread -w "$(echo "$REF_FNA" | sed "s/[.]fna$/.gene.fna/g")" -g "$REF_FNA" "$WORKING_DIR"/stringtie/gffcmp.combined.gtf
+"$TALON_BIN_DIR"/talon_initialize_database --f="$GTF" --g="$GENOME_BUILD" --a="$ANNOTATION_NAME" --o="$OUTPUT_DB"
 ```
 
-### Align long reads to transcript FASTA
+### Create SAM files 
 
-##### Input Sets:
+##### Input Sets
 ```{bash, eval = F}
-REF_GENE_FNA="$WORKING_DIR"/references/combined_dmelanogaster_wMel.gene.fna
 THREADS=4
 
 ## non-treated
-OUTPUT_PREFIX="$WORKING_DIR"/bam/nontreated
-FASTQ=/local/aberdeen2rw/julie/Matt_dir/amelia/nontreated_native.fastq
+BAM=/local/projects-t3/EBMAL/mchung_dir/amelia/bam/nontreated.bam
 
 ## tet-treated
-OUTPUT_PREFIX="$WORKING_DIR"/bam/tettreated
-FASTQ=/usr/local/projects/RDMIN/SEQUENCE/20190307/JW18_Tet_1/20190307_1511_MN21969_FAK36034_cc9722d6/fastq_pass/FAK36034_1c11934bf425d689c4359d9929334e23470cdcdd_0.fastq
+BAM=/local/projects-t3/EBMAL/mchung_dir/amelia/bam/nontreated.bam
 ```
 
-##### Commands:
+##### Commands
 ```{bash, eval = F}
-echo -e ""$MINIMAP2_BIN_DIR"/minimap2 -ax splice -uf -k14 -t "$THREADS" "$REF_GENE_FNA" "$FASTQ" | "$SAMTOOLS_BIN_DIR"/samtools view -bho "$OUTPUT_PREFIX".gene.bam -" | qsub -q threaded.q  -pe thread "$THREADS" -P jdhotopp-lab -l mem_free=5G -N minimap2 -wd "$WORKING_DIR"
+"$SAMTOOLS_BIN_DIR"/samtools view -@ 4 -ho "$(echo "$BAM" | sed "s/[.]sam$//g")" "$BAM"
 ```
 
-### Quantitate transcripts using Salmon
+### Create TALON config files
 
-##### Input Sets:
+TALON config file is a csv consisting of the sample ID, sample type, sequencing instrument, and SAM path
+
+##### Inputs
 ```{bash, eval = F}
-REF_GENE_FNA="$WORKING_DIR"/references/combined_dmelanogaster_wMel.gene.fna
+vim "$WORKING_DIR"/talon/config.txt
+```
+
+##### Commands
+```{bash, eval = F}
+nontreated,nontreated,Oxford_Nanopore_MinION,/local/projects-t3/EBMAL/mchung_dir/amelia/bam/nontreated.sam
+tettreated,tettreated,Oxford_Nanopore_MinION,/local/projects-t3/EBMAL/mchung_dir/amelia/bam/tettreated.sam
+```
+
+### Use TALON to create a new annotation from the long read data
+
+##### Inputs
+```{bash, eval = F}
 THREADS=4
-
-## non-treated
-OUTPUT_DIR="$WORKING_DIR"/salmon/nontreated
-BAM="$WORKING_DIR"/bam/nontreated.gene.bam
-
-## tet-treated
-OUTPUT_DIR="$WORKING_DIR"/salmon/tettreated
-BAM="$WORKING_DIR"/bam/tettreated.gene.bam
+CONFIG="$WORKING_DIR"/talon/config.txt
+GENOME_BUILD=r6.32
+DB="$WORKING_DIR"/talon/dmelanogaster.db
+OUTPUT_PREFIX="$WORKING_DIR"/talon/talon
 ```
 
-##### Commands:
+##### Commands
 ```{bash, eval = F}
-echo -e ""$SALMON_BIN_DIR"/salmon quant -t "$REF_GENE_FNA" --libType A -a "$BAM" -p "$THREADS" -o "$OUTPUT_DIR"" | qsub -P jdhotopp-lab -q threaded.q -pe thread "$THREADS" -l mem_free=5G -N salmon -wd "$OUTPUT_DIR"
+qsub -q threaded.q  -pe thread "$THREADS" -P jdhotopp-lab -l mem_free=5G -N talon -wd "$(dirname "$OUTPUT_PREFIX")" -b y "$TALON_BIN_DIR"/talon --f="$CONFIG" --db="$DB" --build="$GENOME_BUILD" --t="$THREADS" --o "$OUTPUT_PREFIX"
 ```
+
+### Filter TALON transcripts 
+
+
+```{bash, eval = F}
+DB="$WORKING_DIR"/talon/dmelanogaster.db
+ANNOTATION_NAME=dmelanogaster
+GENOME_BUILD=r6.32
+PAIRINGS=/local/projects-t3/EBMAL/mchung_dir/amelia/talon/pairings.csv
+OUTPUT_PREFIX="$WORKING_DIR"/talon/talon
+```
+
+```{bash, eval = F}
+"$TALON_BIN_DIR"/talon_filtered_transcripts --db="$DB" -a "$ANNOTATION_NAME" --b="$GENOME_BUILD" --p="$PAIRINGS" --o="$OUTPUT_PREFIX".csv
+```
+
+### Assess TALON summary file
+
+### Generate TALON abundance file
+
+### Create TALON GTF file
 
 # Identify differential modification in SINV between tet-treated D. melanogaster versus non-treated D. melanogaster
 
@@ -437,6 +511,7 @@ tet-treated
 ## Detect base modifications in the tet-treated and non-treated samples using Tombo 
 
 Tombo was only run for the in vitro and non-treated data sets because the tet-treated data set had only 1 read mapping to SINV.
+
 ### Run Tombo in de novo mode for detecting modifications
 
 ### Detect modifications using Tombo de novo mode
@@ -562,58 +637,130 @@ STATS_PREFIX="$WORKING_DIR"/tombo/model_sample_compare
 echo -e ""$TOMBO_BIN_DIR"/tombo text_output browser_files --statistics-filename "$STATS_PREFIX".tombo.stats --file-types dampened_fraction statistic --browser-file-basename "$STATS_PREFIX"" | qsub -P jdhotopp-lab -l mem_free=50G -N tombo_text_output_browser_files -wd "$(dirname "$STATS_PREFIX")"
 ```
 
+## Print out the C positions in the SINV genome
+
+##### Inputs:
+```{bash, eval = F}
+REF_FNA="$WORKING_DIR"/references/combined.fna
+BAM="$WORKING_DIR"/bam/nontreatd_all.bam
+```
+
+##### Commands:
+```{bash, eval = F}
+"$SAMTOOLS_BIN_DIR"/samtools mpileup -aa -d 1000000 -f "$REF_FNA" --reference "$REF_FNA" "$BAM" | grep J02363.1 | cut -f2,3 | sort -n | awk '$2 == "C" {print $0}' > "$WORKING_DIR"/ref_c_positions.list
+```
+
 ## Plot Tombo results from each run mode to identify modified positions
 
 ### Set R inputs
 ```{R}
-DAMPENED_FRACTION.PATH.LIST <- c("Z:/EBMAL/mchung_dir/amelia/tombo/nontreated.5mC_base_detection.dampened_fraction_modified_reads.plus.wig",
-                                 "Z:/EBMAL/mchung_dir/amelia/tombo/nontreated.denovo_base_detection.dampened_fraction_modified_reads.plus.wig",
-                                 "Z:/EBMAL/mchung_dir/amelia/tombo/invitro.5mC_base_detection.dampened_fraction_modified_reads.plus.wig",
-                                 "Z:/EBMAL/mchung_dir/amelia/tombo/invitro.denovo_base_detection.dampened_fraction_modified_reads.plus.wig",
-                                 "Z:/EBMAL/mchung_dir/amelia/tombo/model_sample_compare.dampened_fraction_modified_reads.plus.wig")
+WORKING_DIR="Z:/EBMAL/mchung_dir/amelia/"
+
+DAMPENED_FRACTION.PATH.LIST <- c(paste0(WORKING_DIR,"/tombo/nontreated.denovo_base_detection.dampened_fraction_modified_reads.plus.wig"),
+                                 paste0(WORKING_DIR,"/tombo/nontreated.5mC_base_detection.dampened_fraction_modified_reads.plus.wig"),
+                                 paste0(WORKING_DIR,"/tombo/invitro.denovo_base_detection.dampened_fraction_modified_reads.plus.wig"),
+                                 paste0(WORKING_DIR,"/tombo/invitro.5mC_base_detection.dampened_fraction_modified_reads.plus.wig"),
+                                 paste0(WORKING_DIR,"/tombo/model_sample_compare.dampened_fraction_modified_reads.plus.wig"))
+REF_C_POSITIONS.PATH <- "Z:/EBMAL/mchung_dir/amelia/ref_c_positions.list"
 ```
 
 ## Load R packages and view sessionInfo
 
 ```{R}
-
+library(cowplot)
+library(ggplot2)
 sessionInfo()
 ```
 
+```{R, eval = F}
+R version 3.5.1 (2018-07-02)
+Platform: x86_64-w64-mingw32/x64 (64-bit)
+Running under: Windows 7 x64 (build 7601) Service Pack 1
 
-```{bash, eval = F}
-ANNOTATION_NAME=dmelanogaster_r6.32
-GENOME_BUILD=r6.32
-GTF="$WORKING_DIR"/references/dmelanogaster.gtf
-OUTPUT_DB="$WORKING_DIR"/talon/dmelanogaster_r6.32
+Matrix products: default
+
+locale:
+[1] LC_COLLATE=English_United States.1252  LC_CTYPE=English_United States.1252    LC_MONETARY=English_United States.1252
+[4] LC_NUMERIC=C                           LC_TIME=English_United States.1252    
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] cowplot_0.9.4 ggplot2_3.2.1
+
+loaded via a namespace (and not attached):
+ [1] Rcpp_1.0.1       withr_2.1.2      assertthat_0.2.1 dplyr_0.8.3      crayon_1.3.4     R6_2.4.0         grid_3.5.1       gtable_0.3.0    
+ [9] magrittr_1.5     scales_1.0.0     pillar_1.3.1     rlang_0.4.0      lazyeval_0.2.2   rstudioapi_0.10  tools_3.5.1      glue_1.3.1      
+[17] purrr_0.3.2      munsell_0.5.0    xfun_0.6         yaml_2.2.0       compiler_3.5.1   pkgconfig_2.0.2  colorspace_1.4-1 tidyselect_0.2.5
+[25] knitr_1.22       tibble_2.1.1
 ```
 
-```{bash, eval = F}
-"$TALON_BIN_DIR"/talon_reformat_gtf -gtf "$GTF"
+## Create a plot for each dampened fraction file
 
-"$TALON_BIN_DIR"/talon_initialize_database --f="$GTF" --g="$GENOME_BUILD" --a="$ANNOTATION_NAME" --o="$OUTPUT_DB"
+```{R}
+ref_c_position <- read.delim(REF_C_POSITIONS.PATH)
 
-
+plot.list <- list()
+for(i in 1:length(DAMPENED_FRACTION.PATH.LIST)){
+  dampened_fraction <- read.delim(DAMPENED_FRACTION.PATH.LIST[i], sep = " ")
+  
+  xcoords <- seq(1,11703)
+  ycoords <- as.numeric(as.character(dampened_fraction[match(xcoords,dampened_fraction[,1]),2]))
+  ycoords[is.na(ycoords)] <- 0
+  
+  plot.list[[i]] <- ggplot(mapping=aes_string(x=xcoords,y=ycoords))+
+    geom_line()+
+    scale_x_continuous(expand=c(0,0))+
+    scale_y_continuous(expand=c(0,0))+
+    coord_cartesian(ylim=c(0.75,1))+
+    labs(x="SINV position", y="dampened fraction")+
+    theme_bw()
+}
 ```
 
-```{bash, eval = F}
-CONFIG="$WORKING_DIR"/talon/config.txt
-GENOME_BUILD=r6.32
-THREADS=4
-DB="$WORKING_DIR"/talon/dmelanogaster_r6.32.db
-OUTPUT_PREFIX="$WORKING_DIR"/talon/talon
+## Create a plot for only the C positions in the dampened fraction file for model_sample_compare
 
-ANNOTATION_NAME="$WORKING_DIR"/references/dmelanogaster_r6.32
-
-GTF="$WORKING_DIR"/references/dmelanogaster.gtf
+```{R}
+ref_c_position <- read.delim(REF_C_POSITIONS.PATH)
+ycoords[!(seq(1,11703) %in% ref_c_position[,1])] <- 0
+plot.list[[6]] <- ggplot(mapping=aes_string(x=xcoords,y=ycoords))+
+  geom_line()+
+  scale_x_continuous(expand=c(0,0))+
+  scale_y_continuous(expand=c(0,0))+
+  coord_cartesian(ylim=c(0.75,1))+
+  labs(x="SINV position", y="dampened fraction")+
+  theme_bw()
 ```
 
-```{bash, eval = F}
-qsub -q threaded.q  -pe thread "$THREADS" -P jdhotopp-lab -l mem_free=5G -N talon -wd "$(dirname "$OUTPUT_PREFIX")" -b y "$TALON_BIN_DIR"/talon --f="$CONFIG" --db="$DB" --build="$GENOME_BUILD" --t="$THREADS" --o "$OUTPUT_PREFIX"
+## Create a plot for each dampened fraction file
+```{R, fig.height = 8, fig.width = 10}
+pdf(paste0(WORKING_DIR,"/plots/tombo_plot_raw.pdf"),
+    height=8,
+    width=10)
+plot_grid(plotlist = plot.list, nrow = 3, ncol = 2, labels = c("A","B","C","D","E","F"))
+dev.off()
 
+png(paste0(WORKING_DIR,"/plots/tombo_plot_raw.png"),
+    height=8,
+    width=10,
+    units = "in",res=300)
+plot_grid(plotlist = plot.list, nrow = 3, ncol = 2, labels = c("A","B","C","D","E","F"))
+dev.off()
 
-
+plot_grid(plotlist = plot.list, nrow = 3, ncol = 2, labels = c("A","B","C","D","E","F"))
 ```
+
+![Image description](/images/tombo_plot_raw.png)
+
+A: nontreated - de novo base detection  
+B: nontreated - 5mC alternative model base detection  
+C: in vitro - de novo base detection  
+D: in vitro - 5mC alternative model base detection  
+E: nontreated v. in vitro - model sample compare  
+F: nontreated v. in vitro - model sample compare C positions  
+
+## aaaa
 
 
 
@@ -657,20 +804,6 @@ Novel transcripts: 19174
 ```
 
 
-```{bash, eval = F}
-DB="$WORKING_DIR"/talon/dmelanogaster_r6.32.db
-ANNOTATION_NAME=dmelanogaster_r6.32
-GENOME_BUILD=r6.32
-OUTPUT_PREFIX="$WORKING_DIR"/talon/talon
-
-PAIRINGS=/local/projects-t3/EBMAL/mchung_dir/amelia/talon/pairings.csv
-```
-
-```{bash, eval = F}
-"$TALON_BIN_DIR"/talon_filtered_transcripts --db="$DB" -a "$ANNOTATION_NAME" --b="$GENOME_BUILD" --p="$PAIRINGS" --o="$OUTPUT_PREFIX".csv
-
-
-```
 
 
 

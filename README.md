@@ -54,10 +54,10 @@
   - [Print out the C positions in the SINV genome](#print-out-the-c-positions-in-the-sinv-genome)
   - [Plot Tombo results from each run mode to identify modified positions](#plot-tombo-results-from-each-run-mode-to-identify-modified-positions)
     - [Set R inputs](#set-r-inputs)
-  - [Load R packages and view sessionInfo](#load-r-packages-and-view-sessioninfo)
-  - [Create a plot for each dampened fraction file](#create-a-plot-for-each-dampened-fraction-file)
-  - [Create a plot for only the C positions in the dampened fraction file for model_sample_compare](#create-a-plot-for-only-the-c-positions-in-the-dampened-fraction-file-for-model_sample_compare)
-  - [Create a plot for each dampened fraction file](#create-a-plot-for-each-dampened-fraction-file-1)
+    - [Load R packages and view sessionInfo](#load-r-packages-and-view-sessioninfo)
+    - [Create a plot for each dampened fraction file](#create-a-plot-for-each-dampened-fraction-file)
+    - [Create a plot for only the C positions in the dampened fraction file for model_sample_compare](#create-a-plot-for-only-the-c-positions-in-the-dampened-fraction-file-for-model_sample_compare)
+    - [Create a plot for each dampened fraction file](#create-a-plot-for-each-dampened-fraction-file-1)
 
 <!-- /MarkdownTOC -->
 
@@ -794,7 +794,7 @@ DAMPENED_FRACTION.PATH.LIST <- c(paste0(WORKING_DIR,"/tombo/nontreated.denovo_ba
 REF_C_POSITIONS.PATH <- "Z:/EBMAL/mchung_dir/amelia/ref_c_positions.list"
 ```
 
-## Load R packages and view sessionInfo
+### Load R packages and view sessionInfo
 
 ```{R}
 library(cowplot)
@@ -826,7 +826,7 @@ loaded via a namespace (and not attached):
 [25] knitr_1.22       tibble_2.1.1
 ```
 
-## Create a plot for each dampened fraction file
+### Create a plot for each dampened fraction file
 
 ```{R}
 ref_c_position <- read.delim(REF_C_POSITIONS.PATH)
@@ -849,7 +849,7 @@ for(i in 1:length(DAMPENED_FRACTION.PATH.LIST)){
 }
 ```
 
-## Create a plot for only the C positions in the dampened fraction file for model_sample_compare
+### Create a plot for only the C positions in the dampened fraction file for model_sample_compare
 
 ```{R}
 ref_c_position <- read.delim(REF_C_POSITIONS.PATH)
@@ -863,7 +863,7 @@ plot.list[[6]] <- ggplot(mapping=aes_string(x=xcoords,y=ycoords))+
   theme_bw()
 ```
 
-## Create a plot for each dampened fraction file
+### Create a plot for each dampened fraction file
 ```{R, fig.height = 8, fig.width = 10}
 pdf(paste0(WORKING_DIR,"/plots/tombo_plot_raw.pdf"),
     height=8,
